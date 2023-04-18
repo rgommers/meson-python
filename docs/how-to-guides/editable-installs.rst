@@ -58,14 +58,17 @@ that would not be normally available.
 Build dependencies
 ------------------
 
-Because package installed in editable mode are rebuilt on import, all
+Because a package installed in editable mode is rebuilt on import, all
 build dependencies need to available at execution time. For building
-packages, pip uses an isolated environment where build dependencies
-are installed without affecting the user environment. The build
-dependencies need to be installed in the user environment. At the time
-of writing, pip does not offer a command to install a the build
-dependencies for a package. The build dependencies requirements can be
-obtained from ``pyproject.toml``. These include at least the
+packages, pip *by default* uses an isolated environment where build dependencies
+are installed without affecting the user environment. This doesn't work
+well when using editable mode - the build dependencies need to be installed in
+the user environment instead. Hence build isolation must be disabled by using
+the ``--no-build-isolation`` flag.
+
+At the time of writing, pip does not offer a command to install the build
+dependencies for a package. The required build dependencies can be obtained
+from ``pyproject.toml``. These include at least the
 ``meson-python`` Python package, and the ``meson`` and ``ninja``
 Python packages, if the respective commands are not provided by the
 system, or if they are not the required version:
@@ -74,10 +77,8 @@ system, or if they are not the required version:
 
    $ python -m pip install meson-python meson ninja
 
-To verify that all the build dependencies are satisfied in the
-development environment, and to avoid the cost of setting up an
-isolated environment, it is recommended to disable build isolation to
-install packages in editable mode:
+After the build dependencies are installed into the environment, the package
+can be installed in editable mode with:
 
 .. code-block:: console
 
