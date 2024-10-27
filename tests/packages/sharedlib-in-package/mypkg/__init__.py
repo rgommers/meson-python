@@ -13,10 +13,11 @@ def _load_sharedlib():
     within wheels. So pre-load it.
     """
     if os.name == "nt":
-        from ctypes import WinDLL
+        #from ctypes import WinDLL
         basedir = os.path.dirname(__file__)
-        dll_path = os.path.join(basedir, "libexamplelib.dll")
-        WinDLL(dll_path)
+        #dll_path = os.path.join(basedir, "libexamplelib.dll")
+        #WinDLL(dll_path)
+        os.add_dll_directory(basedir)
 
 
 _load_sharedlib()
