@@ -4,7 +4,7 @@
 
 project('bar', 'c', version: '1.2.3')
 
-if meson.get_compiler('c').get_id() in ['msvc', 'clang-cl', 'intel-cl']
+if get_option('default_library') == 'shared' and meson.get_compiler('c').get_id() in ['msvc', 'clang-cl', 'intel-cl']
   export_dll_args = ['-DBAR_DLL_EXPORTS']
   import_dll_args = ['-DBAR_DLL_IMPORTS']
 else
@@ -15,7 +15,7 @@ endif
 example_lib = library(
     'examplelib',
     'examplelib.c',
-    c_args: export_dll_args,
+    c_shared_args: export_dll_args,
     install: true,
 )
 
@@ -25,10 +25,9 @@ example_lib = library(
 unwanted_lib = library(
     'unwantedlib',
     'examplelib.c',
-    c_args: export_dll_args,
+    c_shared_args: export_dll_args,
     install: true,
 )
-
 
 bar_dep = declare_dependency(
   compile_args: import_dll_args,
