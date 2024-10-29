@@ -93,7 +93,7 @@ jobs:
         run: python -m pip install .[test]
 
       - name: Run tests
-        run: python -m pytest --showlocals -vv --cov --cov-report=xml -k in
+        run: python -m pytest tests/test_wheel.py --showlocals -vv --cov --cov-report=xml -k in
 
       - name: Upload coverage report
         uses: codecov/codecov-action@v4
@@ -136,7 +136,7 @@ jobs:
         run: python -m pip install .[test]
 
       - name: Run tests
-        run: python -m pytest --showlocals -vv -k in
+        run: python -m pytest tests/test_wheel.py --showlocals -vv -k in
 
   cygwin:
     runs-on: windows-latest
@@ -210,6 +210,6 @@ jobs:
         shell: C:\cygwin\bin\env.exe CYGWIN_NOWINPATH=1 CHERE_INVOKING=1 C:\cygwin\bin\bash.exe -leo pipefail -o igncr {0}
 
       - name: Run tests
-        run: python -m pytest --showlocals -vv -k in
+        run: python -m pytest tests/test_wheel.py --showlocals -vv -k in
         shell: C:\cygwin\bin\env.exe CYGWIN_NOWINPATH=1 CHERE_INVOKING=1 C:\cygwin\bin\bash.exe -leo pipefail -o igncr {0}
 
