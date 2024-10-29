@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: MIT
 
-#include "sub/mypkg_dll.h"
+#include "mypkg_dll.h"
 
-MYPKG_DLL int sum(int a, int b) {
-	return a + b;
-}
+MYPKG_DLL int prod(int a, int b);

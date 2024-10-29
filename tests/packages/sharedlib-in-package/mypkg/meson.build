@@ -23,10 +23,13 @@ example_lib_dep = declare_dependency(
   link_with: example_lib,
 )
 
+subdir('sub')
+
 py.extension_module(
     '_example',
     '_examplemod.c',
-    dependencies: example_lib_dep,
+    dependencies: [example_lib_dep, example_lib2_dep],
+    include_directories: 'sub',
     install: true,
     subdir: 'mypkg',
     install_rpath: '$ORIGIN',
