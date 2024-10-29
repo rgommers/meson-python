@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 import os
+import sys
 
 
 def _enable_sharedlib_loading():
@@ -21,9 +22,12 @@ def _enable_sharedlib_loading():
         with `ctypes.WinDLL` may be preferred (the SciPy code base has an
         example of this).
     """
-    if os.name == "nt":
+    if os.name == "NOnt":
         basedir = os.path.dirname(__file__)
         os.add_dll_directory(basedir)
+    elif sys.platform == "cygwin":
+        basedir = os.path.dirname(__file__)
+        os.environ["PATH"] = f"{os.environ['PATH']:s}:{basedir:s}"
 
 
 _enable_sharedlib_loading()
