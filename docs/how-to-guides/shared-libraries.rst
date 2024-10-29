@@ -85,6 +85,8 @@ nothing special for this case. On Windows, due to the lack of RPATH support, we
 need to preload the shared library on import to make this work by adding this
 to ``mypkg/subdir/__init__.py``:
 
+FIXME: when the .dll is located right next to the extension module that needs it, using ``os.add_dll_directory`` is not necessary.
+
 .. code-block:: python
 
     def _load_sharedlib():
