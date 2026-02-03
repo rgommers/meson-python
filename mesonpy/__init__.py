@@ -779,6 +779,28 @@ class Project():
         ''')
         self._meson_native_file.write_text(native_file_data, encoding='utf-8')
 
+        # Handle `--vsenv` in setup-args, match to interpreter architecture on Windows
+        if sys.platform == 'win32':
+            arch = None
+            # TODO: only for Meson >=1.11.0 (support -arch, see meson#11435)
+            if '--vsenv' in self._meson_args['setup']:
+                is_32bit = sys.maxsize < 2**32
+                _plat = platform.processor().lower()
+                is_arm = 'arm' in _plat or 'aarch' in _plat
+                if is_32bit and not is_arm:
+                    arch = 'x86'
+                elif is_arm:
+                    arch = 'arm64'
+                elif not is_32bit and not is_arm:
+                    arch = 'x64'
+                else:
+                    # 32-bit Arm on Windows isn't a thing, ignore
+                    pass
+                # Ensure we only replace `--vsenv`, not `--vsenv={arch}`
+                if arch is not None:
+                    self._meson_args['setup'] = [f'--vsenv={arch}' if arg == '--vsenv' else arg
+                                                 for arg in self._meson_args['setup']]
+
         # reconfigure if we have a valid Meson build directory. Meson
         # uses the presence of the 'meson-private/coredata.dat' file
         # in the build directory as indication that the build
