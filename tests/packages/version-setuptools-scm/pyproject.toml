@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: 2026 The meson-python developers
+#
+# SPDX-License-Identifier: MIT
+
+[build-system]
+build-backend = 'mesonpy'
+requires = ['meson-python', 'setuptools-scm']
+
+[project]
+name = 'version-setuptools-scm'
+dynamic = ['version']
+
+[tool.setuptools_scm]
+fallback_version = '1.2.3'
+local_scheme = 'no-local-version'
