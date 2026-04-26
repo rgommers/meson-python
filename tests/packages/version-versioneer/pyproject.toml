@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2026 The meson-python developers
+#
+# SPDX-License-Identifier: MIT
+
+[build-system]
+build-backend = 'mesonpy'
+requires = ['meson-python']
+
+[project]
+name = 'version-versioneer'
+dynamic = ['version']
+
+[tool.versioneer]
+VCS = 'git'
+style = 'pep440'
+versionfile_source = 'version_versioneer/_version.py'
+versionfile_build = 'version_versioneer/_version.py'
+tag_prefix = 'v'
+parentdir_prefix = 'version_versioneer-'
