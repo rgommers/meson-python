@@ -10,23 +10,30 @@ project(
     ).stdout().strip(),
 )
 
+fs = import('fs')
 py = import('python').find_installation()
-
-version_gen = files('generate_version.py')
 
 py.install_sources(
     'dynamic_version_from_script/__init__.py',
     subdir: 'dynamic_version_from_script',
 )
 
-custom_target(
-    'write_version_file',
-    output: '_version.py',
-    command: [py, version_gen, '-o', '@OUTPUT@'],
-    build_by_default: true,
-    build_always_stale: true,
-    install: true,
-    install_dir: py.get_install_dir() / 'dynamic_version_from_script',
-)
+meson.add_dist_script('generate_version.py', '-o', 'dynamic_version_from_script/_version.py')
 
-meson.add_dist_script(py, version_gen, '-o', 'dynamic_version_from_script/_version.py')
+if not fs.exists('dynamic_version_from_script/_version.py')
+    custom_target(
+        'write_version_file',
+        output: '_version.py',
+        command: ['generate_version.py', '-o', '@OUTPUT@'],
+        build_by_default: true,
+        build_always_stale: true,
+        install: true,
+        install_dir: py.get_install_dir() / 'dynamic_version_from_script',
+    )
+else
+    # When building from sdist, _version.py exists and should be included
+    py.install_sources(
+        ['dynamic_version_from_script/_version.py'],
+        subdir: 'dynamic_version_from_script',
+    )
+endif
