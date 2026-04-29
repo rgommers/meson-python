@@ -20,9 +20,11 @@ from versioning, and hence reach for dynamic versioning. E.g.:
 .. note::
 
     Each of these things has a cost - keeping all metadata static and not
-    running ``git`` as part of the build avoids running extra build steps in
-    some cases, and avoids extra build dependencies or custom scripts.
-    Only use these dynamic features if you have a good reason to do so!
+    running ``git`` or introspecting the ``.git`` directory as part of the build
+    avoids running extra build steps in some cases, extra build dependencies or
+    custom scripts, and potential issues with shallow checkouts in CI where the
+    ``.git`` directory may not be present. Only use these dynamic features if
+    you have a good reason to do so!
 
 Single-sourcing the version string
 ----------------------------------
@@ -149,44 +151,28 @@ Derive version from latest git tag
 ----------------------------------
 
 When the version is encoded in git tags rather than in source files, the
-build system has to query git at configure time. The cost is that git
-becomes a build-time dependency in development checkouts, and the
-resolved version has to be captured statically when generating a source
-distribution so installs from the sdist don't need git at all.
+build system has to query git at configure time. There are a number of
+packages that provide this functionality - all popular ones (e.g.,
+``setuptools-scm``, ``versioneer``, ``versioningit``) can be used
+together with ``meson-python``. The integration principle is the same
+as above: use a ``run_command()`` call inside ``project()`` (either directly or
+through a small wrapper script like ``get_version.py`` higher up) that prints
+the version and (optionally) writes out a file to disk that can be included in
+the sdist.
 
-There are several tools in the Python ecosystem that compute the
-version from git tags, e.g. ``setuptools-scm``, ``versioneer``, and
-``hatch-vcs``. They all follow the same general pattern with
-meson-python: invoke the tool from ``meson.build`` (typically through
-a small wrapper script) to obtain the version string passed to
-:samp:`project()`. The example below uses ``setuptools-scm``; the same
-approach applies to the other tools — only the wrapper script differs.
-
-Matplotlib uses ``setuptools-scm``. Declare it as a build requirement
-and configure it via a ``[tool.setuptools_scm]`` table in
-``pyproject.toml``:
+The example below uses ``setuptools-scm``; the same approach applies
+to the other tools - only the wrapper script differs. Declare it as a build
+requirement in ``pyproject.toml``:
 
 .. code-block:: toml
 
     [build-system]
     build-backend = 'mesonpy'
-    requires = ['meson-python', 'setuptools-scm']
+    requires = ['meson-python', 'setuptools-scm[simple]']
 
     [project]
     name = 'mypkg'
     dynamic = ['version']
-
-    [tool.setuptools_scm]
-    fallback_version = '0.0.0'
-    local_scheme = 'no-local-version'
-
-The ``fallback_version`` setting is what lets builds succeed when there
-is no ``.git`` directory present — for example when building from a
-source distribution. The ``local_scheme = 'no-local-version'`` setting
-strips the ``+gXXXXXXX`` local-version segment that setuptools-scm
-appends in checkouts that have commits past the latest tag, which is
-useful for reproducible CI builds and for uploading to indexes that
-reject local-version segments.
 
 In ``meson.build``, invoke ``setuptools-scm`` to compute the version:
 
@@ -195,19 +181,11 @@ In ``meson.build``, invoke ``setuptools-scm`` to compute the version:
     project(
         'mypkg',
         version: run_command(
-            ['get_version.py'],
+            ['python3', '-m', 'setuptools_scm'],
             check: true,
         ).stdout().strip(),
     )
 
-with a small wrapper script (``get_version.py``):
-
-.. code-block:: python
-
-    #!/usr/bin/env python3
-    from setuptools_scm import get_version
-    print(get_version())
-
-A complete worked example lives at
-``tests/packages/version-setuptools-scm`` in the meson-python source
-tree.
+That's it. You can use ``setuptools-scm`` config options as explained in its docs.
+If you do want to store a generated file ``.py`` file with versioning metadata,
+use ``meson.add_dist_script()`` as explained higher up.
