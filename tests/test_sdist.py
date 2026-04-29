@@ -83,18 +83,18 @@ def test_dynamic_version(sdist_dynamic_version):
     '''))
 
 
-def test_version_from_script(sdist_version_from_script):
-    with tarfile.open(sdist_version_from_script, 'r:gz') as sdist:
+def test_dynamic_version_from_script(sdist_dynamic_version_from_script):
+    with tarfile.open(sdist_dynamic_version_from_script, 'r:gz') as sdist:
         names = {member.name for member in sdist.getmembers()}
-        sdist_pkg_info = sdist.extractfile('version_from_script-1.2.3/PKG-INFO').read()
+        sdist_pkg_info = sdist.extractfile('dynamic_version_from_script-1.2.3/PKG-INFO').read()
 
     assert metadata(sdist_pkg_info) == metadata(textwrap.dedent('''\
         Metadata-Version: 2.1
-        Name: version-from-script
+        Name: dynamic-version-from-script
         Version: 1.2.3
     '''))
 
-    assert 'version_from_script-1.2.3/version_from_script/_version.py' in names
+    assert 'dynamic_version_from_script-1.2.3/dynamic_version_from_script/_version.py' in names
 
 
 def test_version_setuptools_scm(sdist_version_setuptools_scm):
