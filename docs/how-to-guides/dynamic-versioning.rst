@@ -164,27 +164,16 @@ The example below uses ``setuptools-scm``; the same approach applies
 to the other tools - only the wrapper script differs. Declare it as a build
 requirement in ``pyproject.toml``:
 
-.. code-block:: toml
 
-    [build-system]
-    build-backend = 'mesonpy'
-    requires = ['meson-python', 'setuptools-scm[simple]']
-
-    [project]
-    name = 'mypkg'
-    dynamic = ['version']
+.. literalinclude:: ../../tests/packages/version-setuptools-scm/pyproject.toml
+   :language: toml
+   :lines: 5-12
 
 In ``meson.build``, invoke ``setuptools-scm`` to compute the version:
 
-.. code-block:: meson
-
-    project(
-        'mypkg',
-        version: run_command(
-            ['python3', '-m', 'setuptools_scm'],
-            check: true,
-        ).stdout().strip(),
-    )
+.. literalinclude:: ../../tests/packages/version-setuptools-scm/meson.build
+   :language: meson
+   :lines: 5-
 
 That's it. You can use ``setuptools-scm`` config options as explained in its docs.
 If you do want to store a generated file ``.py`` file with versioning metadata,
