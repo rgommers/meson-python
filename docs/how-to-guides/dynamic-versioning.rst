@@ -154,18 +154,17 @@ becomes a build-time dependency in development checkouts, and the
 resolved version has to be captured statically when generating a source
 distribution so installs from the sdist don't need git at all.
 
-There are two common tools for this in the Python ecosystem,
-``setuptools-scm`` and ``versioneer``. Both can be wired up to
-meson-python by invoking them from ``meson.build`` to obtain the version
-string passed to :samp:`project()`.
+There are several tools in the Python ecosystem that compute the
+version from git tags, e.g. ``setuptools-scm``, ``versioneer``, and
+``hatch-vcs``. They all follow the same general pattern with
+meson-python: invoke the tool from ``meson.build`` (typically through
+a small wrapper script) to obtain the version string passed to
+:samp:`project()`. The example below uses ``setuptools-scm``; the same
+approach applies to the other tools — only the wrapper script differs.
 
-
-Using ``setuptools-scm``
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-This is the approach used by Matplotlib. Declare ``setuptools-scm`` as a
-build requirement and configure it via a ``[tool.setuptools_scm]`` table
-in ``pyproject.toml``:
+Matplotlib uses ``setuptools-scm``. Declare it as a build requirement
+and configure it via a ``[tool.setuptools_scm]`` table in
+``pyproject.toml``:
 
 .. code-block:: toml
 
@@ -212,71 +211,3 @@ with a small wrapper script (``get_version.py``):
 A complete worked example lives at
 ``tests/packages/version-setuptools-scm`` in the meson-python source
 tree.
-
-
-Using ``versioneer``
-~~~~~~~~~~~~~~~~~~~~
-
-Pandas uses ``versioneer``. Versioneer's installation step generates a
-``_version.py`` module that is committed to the project source tree and
-which contains the full version-resolution logic. In a development
-checkout it inspects ``git describe --tags``; in a source distribution
-the version is baked into the same file at sdist time, so neither git
-nor versioneer itself needs to be available at install time.
-
-Configure versioneer in ``pyproject.toml``:
-
-.. code-block:: toml
-
-    [build-system]
-    build-backend = 'mesonpy'
-    requires = ['meson-python']
-
-    [project]
-    name = 'mypkg'
-    dynamic = ['version']
-
-    [tool.versioneer]
-    VCS = 'git'
-    style = 'pep440'
-    versionfile_source = 'mypkg/_version.py'
-    versionfile_build = 'mypkg/_version.py'
-    tag_prefix = 'v'
-
-Run ``versioneer install`` once to generate ``mypkg/_version.py`` and
-the accompanying ``.gitattributes`` rules; commit the result. From then
-on, ``meson.build`` only has to import the generated module to get the
-version:
-
-.. code-block:: meson
-
-    project(
-        'mypkg',
-        version: run_command(
-            ['get_version.py'],
-            check: true,
-        ).stdout().strip(),
-    )
-
-with a small wrapper script:
-
-.. code-block:: python
-
-    #!/usr/bin/env python3
-    from mypkg._version import get_versions
-    print(get_versions()['version'])
-
-A complete worked example lives at ``tests/packages/version-versioneer``
-in the meson-python source tree.
-
-
-Choosing between the two
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-Both tools cover the same use case. ``setuptools-scm`` is lighter to
-adopt — there is nothing to vendor — but it remains a build-time
-dependency forever. ``versioneer`` is heavier up-front because it
-vendors a generated ``_version.py`` (and optionally ``versioneer.py``)
-into the source tree, but the resulting package has no runtime or
-build-time dependency on versioneer itself, which is convenient for
-projects that want to minimise their build environment.

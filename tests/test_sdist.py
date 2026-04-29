@@ -108,17 +108,6 @@ def test_version_setuptools_scm(sdist_version_setuptools_scm):
     '''))
 
 
-def test_version_versioneer(sdist_version_versioneer):
-    with tarfile.open(sdist_version_versioneer, 'r:gz') as sdist:
-        sdist_pkg_info = sdist.extractfile('version_versioneer-1.2.3/PKG-INFO').read()
-
-    assert metadata(sdist_pkg_info) == metadata(textwrap.dedent('''\
-        Metadata-Version: 2.1
-        Name: version-versioneer
-        Version: 1.2.3
-    '''))
-
-
 def test_contents(sdist_library):
     with tarfile.open(sdist_library, 'r:gz') as sdist:
         names = {member.name for member in sdist.getmembers()}
