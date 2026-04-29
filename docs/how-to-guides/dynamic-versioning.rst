@@ -94,15 +94,15 @@ With that ``get_version.py`` script retrieving the version from
         print(get_version())
 
 
-Obtaining the git commit hash and storing it inside your package
-----------------------------------------------------------------
+Storing the git commit hash inside your package
+-----------------------------------------------
 
 Capturing the git commit hash alongside the version can be useful for bug
-reports and reproducibility: the user can print ``mypkg.__version__`` and
-``mypkg.__git_hash__`` to identify exactly which commit they are running.
-The commit hash is not part of ``pyproject.toml`` and cannot be derived
-from a source distribution after the fact, so it has to be written into
-the package at build time.
+reports and reproducibility: the user can print ``pkgname.__version__`` and
+``pkgname.__git_hash__`` to identify exactly which commit they are running. The
+commit hash is not part of ``pyproject.toml`` and cannot be derived from a
+source distribution after the fact, so it has to be written into the package at
+build time.
 
 A pattern to achieve this, which used by NumPy for example, is a single helper
 script that does double duty: it prints the version when called from
@@ -141,7 +141,7 @@ The package's ``__init__.py`` re-exports the generated symbols:
 
 .. code-block:: python
 
-    from mypkg._version import __git_hash__, __version__
+    from pkgname._version import __git_hash__, __version__
 
 A complete worked example lives at ``tests/packages/dynamic-version-from-script``
 in the meson-python source tree.
