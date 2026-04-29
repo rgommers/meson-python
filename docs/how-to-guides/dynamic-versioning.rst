@@ -8,7 +8,10 @@
 Dynamic versioning
 ******************
 
-Things a package author may want:
+The most common approach to versioning is to keep a static version number in
+``pyproject.toml`` only, and update it before a new release in a regular commit.
+This is simple and robust. However, sometimes a package author may want more
+from versioning, and hence reach for dynamic versioning. E.g.:
 
 1. Use the package version in a ``meson.build`` file without duplicating the version string between ``pyproject.toml`` and ``meson.build``.
 2. Use the hash of the current commit in the package version, or store it in a configuration file.
@@ -18,8 +21,8 @@ Things a package author may want:
 
     Each of these things has a cost - keeping all metadata static and not
     running ``git`` as part of the build avoids running extra build steps in
-    some cases. Only use these dynamic features if you have a good reason to do
-    so!
+    some cases, and avoids extra build dependencies or custom scripts.
+    Only use these dynamic features if you have a good reason to do so!
 
 Single-sourcing the version string
 ----------------------------------
@@ -59,7 +62,10 @@ And in ``meson.build``, run a helper script as part of the project call
 
     project('my-project',
         'c',
-        version: run_command('get_version.py', check: true).stdout().strip(),
+        version: run_command(
+            ['get_version.py'],
+            check: true
+        ).stdout().strip(),
     )
 
 With that ``get_version.py`` script retrieving the version from
@@ -89,48 +95,26 @@ With that ``get_version.py`` script retrieving the version from
 Obtaining the git commit hash and storing it inside your package
 ----------------------------------------------------------------
 
-Capturing the git commit hash alongside the version is useful for bug
+Capturing the git commit hash alongside the version can be useful for bug
 reports and reproducibility: the user can print ``mypkg.__version__`` and
 ``mypkg.__git_hash__`` to identify exactly which commit they are running.
 The commit hash is not part of ``pyproject.toml`` and cannot be derived
 from a source distribution after the fact, so it has to be written into
 the package at build time.
 
-The pattern used by NumPy and other large projects is a single helper
+A pattern to achieve this, which used by NumPy for example, is a single helper
 script that does double duty: it prints the version when called from
-``project()``, and it writes a generated ``_version.py`` file containing
-both the version and the git hash when called from a build step. The
-script is wired up via :samp:`custom_target` for normal builds and via
-:samp:`meson.add_dist_script` so that the generated file is also included
+``project()``, and it writes a generated ``_version.py`` file containing both
+the version and the git hash when called from a build step. The
+script is wired up via ``custom_target()`` for normal builds and via
+``meson.add_dist_script()`` so that the generated file is also included
 in source distributions.
 
 In ``meson.build``:
 
-.. code-block:: meson
-
-    project(
-        'mypkg',
-        version: run_command(
-            ['generate_version.py', '--print-version'],
-            check: true,
-        ).stdout().strip(),
-    )
-
-    py = import('python').find_installation()
-
-    version_gen = files('generate_version.py')
-
-    custom_target(
-        'write_version_file',
-        output: '_version.py',
-        command: [py, version_gen, '-o', '@OUTPUT@'],
-        build_by_default: true,
-        build_always_stale: true,
-        install: true,
-        install_dir: py.get_install_dir() / 'mypkg',
-    )
-
-    meson.add_dist_script(py, version_gen, '-o', 'mypkg/_version.py')
+.. literalinclude:: ../../tests/packages/dynamic-version-from-script/meson.build
+   :language: meson
+   :lines: 5-
 
 The ``build_always_stale: true`` flag ensures that the recorded hash is
 refreshed every time the project is rebuilt, rather than being cached
@@ -142,59 +126,9 @@ via ``git rev-parse``, falling back to ``'unknown'`` when called outside
 a checkout — for example when building from an extracted source
 distribution:
 
-.. code-block:: python
-
-    #!/usr/bin/env python3
-    import argparse
-    import os
-    import subprocess
-
-
-    def get_version_from_pyproject():
-        here = os.path.dirname(os.path.abspath(__file__))
-        with open(os.path.join(here, 'pyproject.toml')) as f:
-            for line in f:
-                if line.startswith('version ='):
-                    return line.split('=', 1)[1].strip().strip('\'"')
-        raise RuntimeError('version not found in pyproject.toml')
-
-
-    def get_git_hash():
-        here = os.path.dirname(os.path.abspath(__file__))
-        try:
-            result = subprocess.run(
-                ['git', 'rev-parse', 'HEAD'],
-                cwd=here, capture_output=True, check=True, text=True,
-            )
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            return 'unknown'
-        return result.stdout.strip()
-
-
-    def write_version_file(outfile, version, git_hash):
-        if 'MESON_DIST_ROOT' in os.environ:
-            outfile = os.path.join(os.environ['MESON_DIST_ROOT'], outfile)
-        with open(outfile, 'w') as f:
-            f.write(f"__version__ = '{version}'\n")
-            f.write(f"__git_hash__ = '{git_hash}'\n")
-
-
-    def main():
-        parser = argparse.ArgumentParser()
-        group = parser.add_mutually_exclusive_group(required=True)
-        group.add_argument('--print-version', action='store_true')
-        group.add_argument('-o', '--outfile')
-        args = parser.parse_args()
-
-        version = get_version_from_pyproject()
-        if args.print_version:
-            print(version)
-            return
-        write_version_file(args.outfile, version, get_git_hash())
-
-
-    if __name__ == '__main__':
-        main()
+.. literalinclude:: ../../tests/packages/dynamic-version-from-script/generate_version.py
+   :language: python
+   :lines: 1,5-
 
 The ``MESON_DIST_ROOT`` branch ensures that when the script is invoked
 as a dist script, it writes the generated file into the staging
@@ -207,7 +141,7 @@ The package's ``__init__.py`` re-exports the generated symbols:
 
     from mypkg._version import __git_hash__, __version__
 
-A complete worked example lives at ``tests/packages/version-from-script``
+A complete worked example lives at ``tests/packages/dynamic-version-from-script``
 in the meson-python source tree.
 
 
