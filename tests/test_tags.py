@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: MIT
 
-import importlib.machinery
 import os
 import pathlib
 import platform
@@ -27,20 +26,8 @@ ABI = tag.abi
 INTERPRETER = tag.interpreter
 PLATFORM = adjust_packaging_platform_tag(tag.platform)
 
-
-def get_abi3_suffix():
-    # EXTENSION_SUFFIXES are ordered in preference order, and more specific ABI is preferred.
-    # On free-threaded 3.15+, this will match ".abi3t" as the only supported stable ABI.
-    # On GIL-enabled 3.15+, it will match plain ".abi3" first, since that ABI is more specific.
-    for suffix in importlib.machinery.EXTENSION_SUFFIXES:
-        if '.abi3' in suffix:  # Unix
-            return suffix
-        elif suffix == '.pyd':  # Windows
-            return suffix
-
-
 SUFFIX = sysconfig.get_config_var('EXT_SUFFIX')
-ABI3SUFFIX = get_abi3_suffix()
+ABI3SUFFIX = mesonpy._get_abi3_suffix()
 
 
 def test_wheel_tag():

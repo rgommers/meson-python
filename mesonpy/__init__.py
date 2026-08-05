@@ -99,7 +99,7 @@ _MESON_REQUIRED_VERSION = '0.64.0' if sys.version_info < (3, 12) else '1.2.3'
 _MESON_ARGS_KEYS = ['dist', 'setup', 'compile', 'install']
 
 _SUFFIXES = importlib.machinery.all_suffixes()
-_EXTENSION_SUFFIX_REGEX = re.compile(r'^[^.]+\.(?:(?P<abi>[^.]+)\.)?(?:so|pyd|dll)$')
+_EXTENSION_SUFFIX_REGEX = re.compile(r'^[^.]+(?P<suffix>\.(?:(?P<abi>[^.]+)\.)?(?:so|pyd|dll))$')
 assert all(re.match(_EXTENSION_SUFFIX_REGEX, f'foo{x}') for x in importlib.machinery.EXTENSION_SUFFIXES)
 
 # Map Meson installation path placeholders to wheel installation paths.
@@ -332,6 +332,29 @@ def _is_native(file: Path) -> bool:
             return f.read(4) == b'\x7fELF'  # ELF
 
 
+def _get_abi3_suffix() -> str | None:
+    """Get the filename suffix identifying stable ABI extension modules."""
+
+    # EXTENSION_SUFFIXES is ordered from the more to the less specific ABI.
+    # On Python 3.15 or later, this resolves to ".abi3t-${platform}" for
+    # free-threaded builds and to ".abi3-${platform}" on regular builds.
+    # Python 3.15 and later also accepts the generic ".abi3t" or ".abi3"
+    # suffixes, but we ignore this for the moment.
+    #
+    # Older Python versions do not support a stable ABI for free-threaded
+    # build, and do not support a platform-specific filename suffix, and this
+    # resolves to simply ".abi3".
+    #
+    # On Windows, Python does not use a dedicated filename suffix for stable
+    # ABI extension modules.
+    for suffix in importlib.machinery.EXTENSION_SUFFIXES:
+        if suffix.startswith('.abi3'):
+            return suffix
+        if suffix == '.pyd':
+            return suffix
+    return None
+
+
 @dataclasses.dataclass
 class _WheelBuilder():
     """Helper class to build wheels from projects."""
@@ -429,12 +452,12 @@ class _WheelBuilder():
         # not use the stable ABI filename suffix and wheels should not
         # be tagged with the abi3 tag.
         if self._limited_api and '__pypy__' not in sys.builtin_module_names:
-            # On free-threaded Python 3.15.0b2+, we expect to be
+            # On free-threaded Python 3.15 and later, we expect to be
             # building 'abi3t' wheels for the time being. In the future
             # we will want an option to target 'abi3t' from GIL-enabled
             # Python too.
-            abi3t = bool(sysconfig.get_config_var('Py_GIL_DISABLED')) and sys.version_info >= (3, 15)
-            expected_abi = 'abi3t' if abi3t else 'abi3'
+            abi3 = _get_abi3_suffix()
+            assert isinstance(abi3, str)
 
             # Verify stable ABI compatibility: examine files installed
             # in {platlib} that look like extension modules, and raise
@@ -443,12 +466,11 @@ class _WheelBuilder():
             for entry in self._manifest['platlib']:
                 match = _EXTENSION_SUFFIX_REGEX.match(entry.dst.name)
                 if match:
-                    abi = match.group('abi')
-                    if abi is not None and abi != expected_abi:
+                    if match.group('abi') is not None and match.group('suffix') != abi3:
                         raise BuildError(
                             f'The package declares compatibility with Python limited API but extension '
                             f'module {os.fspath(entry.dst)!r} is tagged for a specific Python version.')
-            return 'abi3.abi3t' if abi3t else 'abi3'
+            return 'abi3.abi3t' if abi3.startswith('.abi3t') else 'abi3'
         return None
 
     def _install_path(self, wheel_file: mesonpy._wheelfile.WheelFile, origin: Path, destination: pathlib.Path) -> None:
