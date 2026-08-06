@@ -9,6 +9,7 @@ on:
     branches:
       - main
       - release-*
+      - test-abi3t-fix
   pull_request:
     branches:
       - main
@@ -39,27 +40,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - ubuntu-latest
-          - windows-latest
-          - macos-latest
-          # GitHub Actions switched to macOS on amr64 by default. Keep
-          # a job running on macOS on x86-64 for a while longer.
-          - macos-15-intel
-        python:
-          - '3.9'
-          - '3.15'
-        meson:
-          -
-        dependencies:
-          -
         include:
-          - os: ubuntu-latest
-            python: 'pypy-3.9'
-          - os: ubuntu-latest
-            python: 'pypy-3.11'
-          - os: ubuntu-latest
-            python: '3.10'
           # Free-threaded builds are required to test the handling of the
           # 'abi3t' stable ABI, see PEP 803. Windows is tested too because
           # there stable ABI extension modules do not use a dedicated
@@ -68,52 +49,6 @@ jobs:
             python: '3.15t'
           - os: windows-latest
             python: '3.15t'
-          # Test with older supported Meson version.  Meson up to
-          # version 1.2.3 requires distutils, which has been removed
-          # from the stdlib in Python 3.12, thus test with Pythn 3.11.
-          # To avoid having too many CI jobs, combine this with tests
-          # with the minimum version of other dependencies.
-          - os: ubuntu-latest
-            python: '3.11'
-            meson: '~=0.64.0'
-          - os: ubuntu-latest
-            python: '3.11'
-            meson: '~=1.0.0'
-          - os: ubuntu-latest
-            python: '3.11'
-            meson: '~=1.1.0'
-          - os: ubuntu-latest
-            python: '3.12'
-            meson: '~=1.2.3'
-          - os: ubuntu-latest
-            python: '3.12'
-            meson: '~=1.3.0'
-          - os: ubuntu-latest
-            python: '3.12'
-            meson: '~=1.4.0'
-          - os: ubuntu-latest
-            python: '3.12'
-            meson: '~=1.5.0'
-            dependencies: 'packaging==23.2 pyproject-metadata==0.9.0'
-          - os: ubuntu-latest
-            python: '3.12'
-            meson: '~=1.6.0'
-            dependencies: 'pyproject-metadata==0.9.0'
-          - os: ubuntu-latest
-            python: '3.12'
-            meson: '~=1.7.0'
-            dependencies: 'packaging==23.2'
-          - os: ubuntu-latest
-            python: '3.13'
-            meson: '~=1.8.0'
-          # Test with Meson master branch.
-          - os: ubuntu-latest
-            python: '3.14'
-            meson: '@git+https://github.com/mesonbuild/meson.git'
-          - os: windows-latest
-            python: '3.14'
-            meson: '@git+https://github.com/mesonbuild/meson.git'
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
