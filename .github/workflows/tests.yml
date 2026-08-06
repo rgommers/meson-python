@@ -60,6 +60,14 @@ jobs:
             python: 'pypy-3.11'
           - os: ubuntu-latest
             python: '3.10'
+          # Free-threaded builds are required to test the handling of the
+          # 'abi3t' stable ABI, see PEP 803. Windows is tested too because
+          # there stable ABI extension modules do not use a dedicated
+          # filename suffix.
+          - os: ubuntu-latest
+            python: '3.15t'
+          - os: windows-latest
+            python: '3.15t'
           # Test with older supported Meson version.  Meson up to
           # version 1.2.3 requires distutils, which has been removed
           # from the stdlib in Python 3.12, thus test with Pythn 3.11.
