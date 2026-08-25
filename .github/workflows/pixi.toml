@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: 2025 The meson-python developers
+#
+# SPDX-License-Identifier: MIT
+
+[workspace]
+name = "meson-python"
+version = "0.22.0.dev0"
+description = "Meson PEP 517 Python build backend"
+license = "MIT"
+documentation = "https://mesonbuild.com/meson-python"
+repository = "https://github.com/mesonbuild/meson-python"
+channels = ["https://prefix.dev/conda-forge"]
+platforms = ["linux-aarch64"]
+
+[dependencies]
+meson = ">=1.12.0,<2"
+packaging = ">=24.2"
+pyproject-metadata = ">=0.9.0"
+ninja = "*"
+cmake = "*"
+patchelf = "*"
+c-compiler = "*"
+pip = "*"
+python-build = "*"
+cython = "*"
+pytest = "*"
+pytest-mock = "*"
+wheel = "*"
+
+[tasks]
+build = { cmd = "pip install -e . --no-build-isolation", cwd = "../.." }
+# Setting PKG_CONFIG_PATH is needed because Cython sanity check is broken (meson#15740)
+test = { cmd = "pytest", cwd = "../..", env = { PKG_CONFIG_PATH = "$CONDA_PREFIX/lib/pkgconfig" } }
