@@ -48,6 +48,7 @@ environments:
       - conda: https://prefix.dev/conda-forge/linux-aarch64/ninja-1.13.2-hdc560ac_1.conda
       - conda: https://prefix.dev/conda-forge/linux-aarch64/openssl-3.6.3-h546c87b_1.conda
       - conda: https://prefix.dev/conda-forge/linux-aarch64/patchelf-0.19.1-hfb11796_1.conda
+      - conda: https://prefix.dev/conda-forge/linux-aarch64/pkg-config-0.29.2-h36a561e_1011.conda
       - conda: https://prefix.dev/conda-forge/linux-aarch64/python-3.14.7-h6bfacdd_100_cp314.conda
       - conda: https://prefix.dev/conda-forge/linux-aarch64/readline-8.3-ha7194a6_1.conda
       - conda: https://prefix.dev/conda-forge/linux-aarch64/rhash-1.4.6-he30d5cf_2.conda
@@ -537,6 +538,16 @@ packages:
   run_exports: {}
   size: 155619
   timestamp: 1787380792832
+- conda: https://prefix.dev/conda-forge/linux-aarch64/pkg-config-0.29.2-h36a561e_1011.conda
+  sha256: 91cf73940417d96fe2c0dc8b4681cdf0e877a12a6eab1cf2ecba1a72699de075
+  md5: 635b6b5a581745fb3a4b237069c1a309
+  depends:
+  - libgcc >=14
+  license: GPL-2.0-or-later
+  license_family: GPL
+  run_exports: {}
+  size: 331109
+  timestamp: 1786352313756
 - conda: https://prefix.dev/conda-forge/linux-aarch64/python-3.14.7-h6bfacdd_100_cp314.conda
   build_number: 100
   sha256: f06bf28284339913931caf4004e3d81269bfb08e57fe3487cf87008c02480194
