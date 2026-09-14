@@ -5,7 +5,7 @@
 project(
     'version-setuptools-scm',
     version: run_command(
-        ['python3', '-m', 'setuptools_scm'],
+        [find_program('python3', 'python'), '-m', 'setuptools_scm'],
         check: true,
     ).stdout().strip(),
 )
