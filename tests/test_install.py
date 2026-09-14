@@ -18,8 +18,8 @@ from .conftest import FREE_THREADED_BUILD, package_dir
 
 # Isolated builds download dependencies and must not run in the offline suite.
 pytestmark = pytest.mark.skipif(
-    'MESON_PYTHON_CI' not in os.environ,
-    reason='requires network access; set MESON_PYTHON_CI to enable',
+    'MESONPY_CI_ISOLATED_UV_TESTS' not in os.environ,
+    reason='requires network access; set MESONPY_CI_ISOLATED_UV_TESTS to enable',
 )
 
 

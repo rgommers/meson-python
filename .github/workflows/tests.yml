@@ -228,7 +228,7 @@ jobs:
         # hide selection of an interpreter outside the isolated build environment.
         run: python -m pytest tests/test_install.py --showlocals -vv
         env:
-          MESON_PYTHON_CI: '1'
+          MESONPY_CI_ISOLATED_UV_TESTS: '1'
 
       - name: Install
         run: uv pip install --system . --group test ninja
