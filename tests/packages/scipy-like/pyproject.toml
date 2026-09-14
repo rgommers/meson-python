@@ -4,7 +4,7 @@
 
 [build-system]
 build-backend = 'mesonpy'
-requires = ['meson-python']
+requires = ['meson-python', 'cython >= 3.0.3']
 
 [project]
 name = "mypkg"
