@@ -226,7 +226,9 @@ jobs:
       - name: Test package installs with build isolation
         # Run before installing the full test dependency group, which could
         # hide selection of an interpreter outside the isolated build environment.
-        run: python -m pytest tests/test_install.py --isolated-install --showlocals -vv
+        run: python -m pytest tests/test_install.py --showlocals -vv
+        env:
+          MESON_PYTHON_CI: '1'
 
       - name: Install
         run: uv pip install --system . --group test ninja

@@ -81,13 +81,6 @@ def adjust_packaging_platform_tag(platform: str) -> str:
 package_dir = pathlib.Path(__file__).parent / 'packages'
 
 
-def pytest_addoption(parser):
-    parser.addoption(
-        '--isolated-install', action='store_true',
-        help='Install all test packages with uv and isolated build dependencies (requires network access).',
-    )
-
-
 @contextlib.contextmanager
 def in_git_repo_context(path=os.path.curdir):
     # Resist the temptation of using pathlib.Path here: it is not

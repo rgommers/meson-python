@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
+import os
 import shutil
 import subprocess
 import sys
@@ -13,6 +14,13 @@ import mesonpy
 from mesonpy._util import chdir
 
 from .conftest import FREE_THREADED_BUILD, package_dir
+
+
+# Isolated builds download dependencies and must not run in the offline suite.
+pytestmark = pytest.mark.skipif(
+    'MESON_PYTHON_CI' not in os.environ,
+    reason='requires network access; set MESON_PYTHON_CI to enable',
+)
 
 
 # These packages deliberately exercise invalid input to the backend.
@@ -29,12 +37,10 @@ ERRORS = {
 
 
 @pytest.fixture(scope='module')
-def uv_install(request, tmp_path_factory):
-    if not request.config.getoption('--isolated-install'):
-        pytest.skip('requires --isolated-install')
+def uv_install(tmp_path_factory):
     uv = shutil.which('uv')
     if uv is None:
-        pytest.fail('--isolated-install requires uv on PATH')
+        pytest.fail('isolated-install tests require uv on PATH')
 
     # Constrain isolated builds to this checkout, rather than a released backend.
     dist = tmp_path_factory.mktemp('backend-wheel')
