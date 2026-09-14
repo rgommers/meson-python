@@ -9,6 +9,7 @@ on:
     branches:
       - main
       - release-*
+      - dynamic-versioning-ci
   pull_request:
     branches:
       - main
