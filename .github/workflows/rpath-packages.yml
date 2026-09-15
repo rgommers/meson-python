@@ -15,7 +15,11 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-14, macos-15-intel]
-        backend: [cbe2ac4, 2a2a7ae, 5bda04e]
+        # checkout needs complete commit IDs; abbreviated IDs are treated as refs.
+        backend:
+          - cbe2ac407957ac0d8b0c5365a02d21dcade12822 # main
+          - 2a2a7aea39536fdb91f4bd6fb2456400a08ab6cb # PR rewrite
+          - 5bda04efab456acc04673235ec09b376078f4b1c # rpath-fixes-astra; publish before running
         meson: ['~=1.5.0', '~=1.6.0', '~=1.8.0', '~=1.9.0', '==1.11.1']
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
@@ -68,7 +72,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        backend: [cbe2ac4, 2a2a7ae, 5bda04e]
+        # checkout needs complete commit IDs; abbreviated IDs are treated as refs.
+        backend:
+          - cbe2ac407957ac0d8b0c5365a02d21dcade12822 # main
+          - 2a2a7aea39536fdb91f4bd6fb2456400a08ab6cb # PR rewrite
+          - 5bda04efab456acc04673235ec09b376078f4b1c # rpath-fixes-astra; publish before running
     steps:
       - uses: actions/checkout@v7
         with:

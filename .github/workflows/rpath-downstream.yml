@@ -49,7 +49,16 @@ jobs:
           repair_args=()
           if [ "$REPAIR" = true ]; then repair_args+=(--repair); fi
           mkdir -p reports
-          for revision in cbe2ac4 2a2a7ae 5bda04e; do
+          for revision in \
+            cbe2ac407957ac0d8b0c5365a02d21dcade12822 \
+            2a2a7aea39536fdb91f4bd6fb2456400a08ab6cb \
+            5bda04efab456acc04673235ec09b376078f4b1c; do
+            # Fetch explicitly: a backend may live outside the suite's history.
+            if ! git fetch --no-tags --depth=1 origin "$revision"; then
+              echo "::error::Cannot fetch backend ${revision}; publish its branch before rerunning."
+              result=1
+              continue
+            fi
             git worktree add --detach "${RUNNER_TEMP}/backend-${revision}" "$revision"
             pixi run --manifest-path tools/rpath-validation/pixi.toml python tools/rpath-validation/run.py "$PROJECT" \
               --backend "${RUNNER_TEMP}/backend-${revision}" \

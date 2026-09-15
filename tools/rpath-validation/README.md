@@ -152,3 +152,9 @@ lock before the backend comparisons continue.
 
 Native macOS results and downstream workflows must be reported as pending until
 executed. See `RESULTS.md` for the local Linux comparison results.
+
+Before pushing the suite branch to start a comparison, publish the saved backend
+branch (`git push origin rpath-fixes-astra`). Its commit is outside the suite's
+history, so publishing the suite alone does not publish the saved implementation.
+Both workflows pin complete backend commit IDs. See [RESULTS.md](RESULTS.md) for
+the first run's setup failures and partial downstream results.

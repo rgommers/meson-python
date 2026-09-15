@@ -75,8 +75,10 @@ def main():
                                    'returncode': result.returncode, 'stdout': result.stdout, 'stderr': result.stderr})
         (output / 'commands.json').write_text(json.dumps(report['commands'], indent=2) + '\n')
         print(f'[{result.returncode}] {shlex.join(command)}', flush=True)
-        if check and result.returncode:
-            raise RuntimeError(result.stdout + '\n' + result.stderr)
+        if result.returncode:
+            if check:
+                raise RuntimeError(result.stdout + '\n' + result.stderr)
+            print(result.stdout + '\n' + result.stderr, file=sys.stderr)
         return result
 
     try:
@@ -176,6 +178,8 @@ def main():
         report['errors'].append(str(error))
     finally:
         (output / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
+    for error in report['errors']:
+        print(error, file=sys.stderr)
     return bool(report['errors'])
 
 
