@@ -11,6 +11,21 @@
 Changelog
 +++++++++
 
+Unreleased
+==========
+
+- Support colon-separated ``install_rpath`` entries with Meson 1.6 or later,
+  preserving explicit installation search precedence on ELF platforms.
+- Remove build-only RPATH entries with Meson 1.9 or later and add a single
+  search path for libraries relocated into ``.mesonpy.libs``.
+- Remove duplicate macOS RPATH entries and handle paths containing whitespace
+  and architecture-specific paths in universal binaries.
+- Preserve ELF ``DT_RPATH`` versus ``DT_RUNPATH`` semantics during rewriting.
+- On macOS, projects must use ``@loader_path`` in ``install_rpath``. Literal
+  ``$ORIGIN`` is not translated; removal of build-only paths can expose
+  configurations that previously worked by relying on those paths.
+
+
 0.21.1
 ======
 

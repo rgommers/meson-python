@@ -85,17 +85,27 @@ shared library in a portable manner by using ``install_rpath``:
 
 .. code-block:: meson
 
+    origin = host_machine.system() == 'darwin' ? '@loader_path' : '$ORIGIN'
+
     py.extension_module('_extmodule',
         '_extmodule.c',
         link_with: example_lib,
         install: true,
         subdir: 'mypkg/subdir',
-        install_rpath: '$ORIGIN'
+        install_rpath: origin,
     )
 
-The above method will work as advertised on macOS and Linux; ``meson-python`` does
-nothing special for this case. Windows needs some special handling though, due to
-the lack of RPATH support:
+This requires Meson 1.6.0 or later, which exposes ``install_rpath`` to
+``meson-python``. Multiple search directories can be specified as a
+colon-separated string, for example ``origin + ':' + (origin / 'subdir')``.
+
+Use ``@loader_path`` on macOS and ``$ORIGIN`` on Linux. ``meson-python`` does
+not translate between these anchors. With Meson 1.9.0 or later, build-only
+RPATH entries are removed from wheels. A macOS package using ``$ORIGIN`` may
+previously have worked because a retained build path happened to match its
+installation layout; it must specify the macOS anchor explicitly instead.
+
+Windows needs some special handling due to the lack of RPATH support:
 
 .. literalinclude:: ../../tests/packages/sharedlib-in-package/mypkg/__init__.py
    :start-after: start-literalinclude

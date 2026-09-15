@@ -36,6 +36,41 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  rpath:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        meson: ['~=1.5.0', '~=1.6.0', '~=1.8.0', '~=1.9.0', '']
+        include:
+          - os: macos-15-intel
+            meson: ''
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install
+        env:
+          MESON_CONSTRAINT: ${{ matrix.meson }}
+        run: python -m pip install . --group test ninja "meson${MESON_CONSTRAINT}"
+      - name: Record toolchain
+        run: |
+          python --version
+          meson --version
+          cc --version
+          if [ "$(uname)" = Darwin ]; then
+            sw_vers
+            xcodebuild -version
+          else
+            patchelf --version
+          fi
+      - name: Test RPATH handling
+        run: python -m pytest tests/test_rpath.py tests/test_wheel.py -k 'rpath or local_lib or sharedlib_in_package or link_library_in_subproject' -vv
+
   test:
     runs-on: ${{ matrix.os }}
     strategy:

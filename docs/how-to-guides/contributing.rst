@@ -22,6 +22,9 @@ system package manager.
 The documentation is written in reST format and the published version is
 generated with Sphinx_.
 
+For changes to shared-library handling, see :doc:`rpath-validation` for the
+focused regression suite and downstream wheel validation procedure.
+
 To work on the code:
 
 1. Fork the repository.

@@ -223,6 +223,7 @@ def meson_fatal_warnings():
                 # in the wild thus we should make sure it keeps working.
                 'link-against-local-lib',
                 'sharedlib-in-package',
+                'rpath-mixed-layout',
 
         }:
             if meson_args is None:

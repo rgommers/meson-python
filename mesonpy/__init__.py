@@ -127,9 +127,7 @@ def _compile_patterns(patterns: List[str]) -> Callable[[str], bool]:
 class _Entry(typing.NamedTuple):
     dst: pathlib.Path
     src: str
-    # Meson support only one install_rpath entry per target. Use a
-    # list to store install RPATH to be able to add append more
-    # entries when needed.
+    # Meson represents install_rpath as a colon-separated string.
     install_rpath: List[str] = []
     # RPATH entries to remove at install time.
     build_rpath: List[str] = []
@@ -191,7 +189,8 @@ def _map_to_wheel(sources: Dict[str, Dict[str, Any]],
             else:
                 install_rpath = target.get('install_rpath')
                 build_rpath = target.get('build_rpaths')
-                wheel_files[path].append(_Entry(dst, src, [install_rpath] if install_rpath else [], build_rpath or []))
+                wheel_files[path].append(_Entry(
+                    dst, src, [entry for entry in (install_rpath or '').split(':') if entry], build_rpath or []))
 
     return wheel_files
 

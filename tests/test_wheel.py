@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import stat
+import subprocess
 import sys
 import textwrap
 
@@ -35,6 +36,21 @@ PLATFORM = adjust_packaging_platform_tag(tag.platform)
 
 # Support for removing build RPATH entries requires Meson 1.9 or later.
 BUILD_RPATH_SUPPORT = MESON_VERSION >= (1, 9)
+
+
+def rpaths(path):
+    entries = mesonpy._rpath.get_rpath(path)
+    assert len(entries) == len(set(entries)), f'Duplicate RPATH entries in {path}: {entries}'
+    return set(entries)
+
+
+@pytest.fixture
+def toolchain_rpaths(wheel_purelib_and_platlib, tmp_path):
+    # This target has no project dependencies or installation RPATH. Its
+    # paths come from the compiler/toolchain (e.g. Conda's library prefix).
+    with wheel.wheelfile.WheelFile(wheel_purelib_and_platlib) as artifact:
+        artifact.extractall(tmp_path)
+    return rpaths(tmp_path / f'plat{EXT_SUFFIX}')
 
 
 def wheel_contents(artifact):
@@ -172,24 +188,24 @@ def test_local_lib(venv, wheel_link_against_local_lib):
 
 
 @pytest.mark.skipif(sys.platform in {'win32', 'cygwin'}, reason='requires RPATH support')
-def test_sharedlib_in_package_rpath(wheel_sharedlib_in_package, tmp_path):
+def test_sharedlib_in_package_rpath(wheel_sharedlib_in_package, tmp_path, toolchain_rpaths):
     artifact = wheel.wheelfile.WheelFile(wheel_sharedlib_in_package)
     artifact.extractall(tmp_path)
 
     origin = '@loader_path' if sys.platform == 'darwin' else '$ORIGIN'
 
-    rpath = set(mesonpy._rpath.get_rpath(tmp_path / 'mypkg' / f'_example{EXT_SUFFIX}'))
+    rpath = rpaths(tmp_path / 'mypkg' / f'_example{EXT_SUFFIX}')
     assert rpath >= {origin}
     if BUILD_RPATH_SUPPORT:
-        assert rpath == {origin}
+        assert rpath == {origin} | toolchain_rpaths
 
-    rpath = set(mesonpy._rpath.get_rpath(tmp_path / 'mypkg' / f'liblib{LIB_SUFFIX}'))
+    rpath = rpaths(tmp_path / 'mypkg' / f'liblib{LIB_SUFFIX}')
     assert rpath >= {f'{origin}/sub'}
     if BUILD_RPATH_SUPPORT:
-        assert rpath == {f'{origin}/sub'}
+        assert rpath == {f'{origin}/sub'} | toolchain_rpaths
 
-    rpath = set(mesonpy._rpath.get_rpath(tmp_path / 'mypkg' / 'sub' / f'libsublib{LIB_SUFFIX}'))
-    assert rpath == set()
+    rpath = rpaths(tmp_path / 'mypkg' / 'sub' / f'libsublib{LIB_SUFFIX}')
+    assert rpath == toolchain_rpaths
 
 
 @pytest.mark.skipif(sys.platform in {'win32', 'cygwin'}, reason='requires RPATH support')
@@ -204,7 +220,7 @@ def test_sharedlib_in_package_rpath_ldflags(package_sharedlib_in_package, tmp_pa
     artifact.extractall(tmp_path)
 
     for path in f'_example{EXT_SUFFIX}', f'liblib{LIB_SUFFIX}', f'sub/libsublib{LIB_SUFFIX}':
-        rpath = set(mesonpy._rpath.get_rpath(tmp_path / 'mypkg' / path))
+        rpath = rpaths(tmp_path / 'mypkg' / path)
         assert extra_rpath <= rpath
 
 
@@ -222,17 +238,17 @@ def test_link_library_in_subproject(venv, wheel_link_library_in_subproject):
 
 
 @pytest.mark.skipif(sys.platform in {'win32', 'cygwin'}, reason='requires RPATH support')
-def test_link_against_local_lib_rpath(wheel_link_against_local_lib, tmp_path):
+def test_link_against_local_lib_rpath(wheel_link_against_local_lib, tmp_path, toolchain_rpaths):
     artifact = wheel.wheelfile.WheelFile(wheel_link_against_local_lib)
     artifact.extractall(tmp_path)
 
     origin = '@loader_path' if sys.platform == 'darwin' else '$ORIGIN'
     expected = {f'{origin}/../.link_against_local_lib.mesonpy.libs', 'custom-rpath',}
 
-    rpath = set(mesonpy._rpath.get_rpath(tmp_path / 'example' / f'_example{EXT_SUFFIX}'))
+    rpath = rpaths(tmp_path / 'example' / f'_example{EXT_SUFFIX}')
     assert rpath >= expected
     if BUILD_RPATH_SUPPORT:
-        assert rpath == expected
+        assert rpath == expected | toolchain_rpaths
 
 
 @pytest.mark.skipif(sys.platform in {'win32', 'cygwin'}, reason='requires RPATH support')
@@ -246,7 +262,7 @@ def test_link_against_local_lib_rpath_ldflags(package_link_against_local_lib, tm
     artifact = wheel.wheelfile.WheelFile(tmp_path / filename)
     artifact.extractall(tmp_path)
 
-    rpath = set(mesonpy._rpath.get_rpath(tmp_path / 'example' / f'_example{EXT_SUFFIX}'))
+    rpath = rpaths(tmp_path / 'example' / f'_example{EXT_SUFFIX}')
     assert extra_rpath <= rpath
 
 
@@ -259,6 +275,87 @@ def test_uneeded_rpath(wheel_purelib_and_platlib, tmp_path):
     rpath = mesonpy._rpath.get_rpath(tmp_path / f'plat{EXT_SUFFIX}')
     for path in rpath:
         assert origin not in path
+
+
+@pytest.mark.skipif(sys.platform in {'win32', 'cygwin'}, reason='requires RPATH support')
+def test_rpath_mixed_layout(package_rpath_mixed_layout, tmp_path, venv, monkeypatch):
+    origin = '@loader_path' if sys.platform == 'darwin' else '$ORIGIN'
+    build = tmp_path / 'build'
+    wheels = tmp_path / 'wheels'
+    wheels.mkdir()
+    previous = None
+    for iteration in range(2):
+        filename = mesonpy.build_wheel(wheels, config_settings={'build-dir': os.fspath(build)})
+        unpacked = tmp_path / f'unpacked-{iteration}'
+        with wheel.wheelfile.WheelFile(wheels / filename) as artifact:
+            artifact.extractall(unpacked)
+        paths = {
+            os.fspath(obj.relative_to(unpacked)): mesonpy._rpath.get_rpath(obj)
+            for obj in unpacked.rglob('*') if obj.is_file() and mesonpy._is_native(obj)
+        }
+        for obj, entries in paths.items():
+            assert len(entries) == len(set(entries)), (obj, entries)
+            assert sum('.mesonpy.libs' in entry for entry in entries) <= 1
+            if BUILD_RPATH_SUPPORT:
+                assert all('/build' not in entry and '/first' not in entry and '/second' not in entry for entry in entries)
+        extension = paths[f'rpath_mixed/_mixed{EXT_SUFFIX}']
+        assert f'{origin}/private' in extension
+        assert f'{origin}/unused' in extension
+        assert f'{origin}/../.rpath_mixed_layout.mesonpy.libs' in extension
+        if previous is not None:
+            assert paths == previous
+        previous = paths
+
+    # An installed wheel must work without any build products or source paths.
+    shutil.rmtree(build)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv('LD_LIBRARY_PATH', raising=False)
+    monkeypatch.delenv('DYLD_LIBRARY_PATH', raising=False)
+    monkeypatch.delenv('DYLD_FALLBACK_LIBRARY_PATH', raising=False)
+    venv.pip('install', os.fspath(wheels / filename))
+    assert venv.python('-c', 'from rpath_mixed import _mixed; print(_mixed.value())').strip() == '114'
+
+
+@pytest.mark.skipif(sys.platform != 'darwin', reason='characterizes literal $ORIGIN on macOS')
+def test_macos_rpath_origin_compatibility(package_sharedlib_in_package, tmp_path, monkeypatch):
+    source = tmp_path / 'source'
+    shutil.copytree(package_sharedlib_in_package, source, ignore=shutil.ignore_patterns('build', '.mesonpy-*'))
+    definition = source / 'meson.build'
+    # Build and install all three binaries beside one another, as SciPy's
+    # special modules and libsf_error_state used to be. Retained build paths
+    # made this configuration work before build-path removal was supported.
+    definition.write_text(textwrap.dedent('''\
+        project('sharedlib-in-package', 'c', version: '1.0.0')
+        py = import('python').find_installation(pure: false)
+        sublib = shared_library('sublib', 'src/sublib.c', install: true,
+            install_dir: py.get_install_dir() / 'mypkg')
+        lib = shared_library('lib', 'src/lib.c', link_with: sublib, install: true,
+            install_dir: py.get_install_dir() / 'mypkg', install_rpath: '$ORIGIN')
+        py.extension_module('_example', 'mypkg/_examplemod.c', link_with: lib,
+            include_directories: include_directories('src'), install: true,
+            subdir: 'mypkg', install_rpath: '$ORIGIN')
+        py.install_sources('mypkg/__init__.py', subdir: 'mypkg')
+        '''))
+    monkeypatch.chdir(source)
+    filename = mesonpy.build_wheel(tmp_path)
+    unpacked = tmp_path / 'installed'
+    with wheel.wheelfile.WheelFile(tmp_path / filename) as artifact:
+        artifact.extractall(unpacked)
+    entries = mesonpy._rpath.get_rpath(unpacked / 'mypkg' / f'_example{EXT_SUFFIX}')
+    assert ('$ORIGIN' in entries) == (MESON_VERSION >= (1, 6))
+    shutil.rmtree(source)
+    monkeypatch.chdir(unpacked)
+    for key in ['LD_LIBRARY_PATH', 'DYLD_LIBRARY_PATH', 'DYLD_FALLBACK_LIBRARY_PATH']:
+        monkeypatch.delenv(key, raising=False)
+    result = subprocess.run([sys.executable, '-c', 'import mypkg; assert mypkg.prodsum(2, 3, 4) == 11'],
+                            capture_output=True, text=True)
+    if BUILD_RPATH_SUPPORT:
+        assert result.returncode != 0
+        assert 'Library not loaded' in result.stderr
+        assert not any(entry.startswith('@loader_path') for entry in entries)
+    else:
+        assert result.returncode == 0, result.stderr
+        assert any(entry.startswith('@loader_path') for entry in entries)
 
 
 @pytest.mark.skipif(sys.platform in {'win32', 'cygwin'}, reason='requires executable bit support')
