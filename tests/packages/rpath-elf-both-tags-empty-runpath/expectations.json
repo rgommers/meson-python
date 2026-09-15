@@ -1,0 +1,39 @@
+{
+  "purpose": "An empty RUNPATH must still suppress RPATH.",
+  "min_meson": "1.9",
+  "platforms": [
+    "linux"
+  ],
+  "input_elf_paths": {
+    "probe-exe": {
+      "RUNPATH": [],
+      "RPATH": [
+        "{origin}/rpath-choice"
+      ]
+    }
+  },
+  "rules": [
+    {
+      "glob": "probe/probe-exe",
+      "elf_paths": {
+        "RUNPATH": [],
+        "RPATH": [
+          "{origin}/rpath-choice"
+        ]
+      },
+      "optional_elf_tags": [
+        "RPATH"
+      ]
+    },
+    {
+      "glob": "probe/runpath-choice/*choice*",
+      "input_glob": "good/*choice*",
+      "paths": []
+    },
+    {
+      "glob": "probe/rpath-choice/*choice*",
+      "input_glob": "bad/*choice*",
+      "paths": []
+    }
+  ]
+}

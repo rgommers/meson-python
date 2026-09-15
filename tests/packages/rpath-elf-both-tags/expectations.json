@@ -1,0 +1,44 @@
+{
+  "purpose": "RUNPATH must suppress RPATH when both tags exist.",
+  "min_meson": "1.9",
+  "platforms": [
+    "linux"
+  ],
+  "input_elf_paths": {
+    "probe-exe": {
+      "RUNPATH": [
+        "{origin}/runpath-choice",
+        "{origin}/good"
+      ],
+      "RPATH": [
+        "{origin}/rpath-choice"
+      ]
+    }
+  },
+  "rules": [
+    {
+      "glob": "probe/probe-exe",
+      "elf_paths": {
+        "RUNPATH": [
+          "{origin}/runpath-choice"
+        ],
+        "RPATH": [
+          "{origin}/rpath-choice"
+        ]
+      },
+      "optional_elf_tags": [
+        "RPATH"
+      ]
+    },
+    {
+      "glob": "probe/runpath-choice/*choice*",
+      "input_glob": "good/*choice*",
+      "paths": []
+    },
+    {
+      "glob": "probe/rpath-choice/*choice*",
+      "input_glob": "bad/*choice*",
+      "paths": []
+    }
+  ]
+}

@@ -1,10 +1,10 @@
 # RPATH regression package expectations
 
-This document collects the expectations for the 21 standalone `rpath-*` packages
+This document collects the expectations for the 25 standalone `rpath-*` packages
 and the unchanged `sharedlib-in-package-orig` compatibility fixture. It describes
 the **raw wheels produced by meson-python**, before auditwheel or delocate repair.
-The tests build native code, inspect the installed binaries, and require that the
-installed wheel works after its source and build directories are removed. Known
+The tests build native code, inspect the installed binaries, and verify the
+specified runtime behavior after source and build directories are removed. Known
 bugs are ordinary failures, not xfails.
 
 ## How to read the expectations
@@ -12,11 +12,12 @@ bugs are ordinary failures, not xfails.
 Each table lists project path entries, in addition to any compiler-injected paths
 measured independently using the dependency-free control. Those compiler paths
 must survive when present in the input binary. “None” means no project paths;
-when no paths at all remain, the ELF RPATH/RUNPATH tag must also disappear.
+when no paths at all remain, the ELF RPATH/RUNPATH tag must also disappear,
+except for the intentional empty-RUNPATH fixture below.
 
 Every listed path must occur once. Raw entries are checked for duplicates before
 normalization; empty entries and linker padding consisting of `X` characters are
-rejected. Equivalent spellings such as `$ORIGIN/.` and `$ORIGIN` are accepted,
+rejected, except for that explicitly asserted empty tag. Equivalent spellings such as `$ORIGIN/.` and `$ORIGIN` are accepted,
 but meaningful whitespace is preserved.
 
 On Linux, path entries belong to `DT_RPATH` or `DT_RUNPATH`. Except where a test
@@ -116,7 +117,7 @@ parentheses and trailing whitespace, to expose lossy parsing of `otool` output.
 
 ## Linux loader semantics
 
-These three packages use installed **executables** (`probe/probe-exe`), rather
+These seven packages use installed **executables** (`probe/probe-exe`), rather
 than extension modules, so the loader behavior is exercised directly. They
 require Linux and Meson 1.9 or newer; macOS skips them.
 
@@ -125,6 +126,24 @@ require Linux and Meson 1.9 or newer; macOS skips them.
 | [rpath-elf-install-precedence](tests/packages/rpath-elf-install-precedence/README.md) | `$ORIGIN/private` before `$ORIGIN/external`; preserve input tag type | Both copies of `libchoice` have no project paths. They share a SONAME but return different values: the installed private choice must produce 42, not 7. |
 | [rpath-elf-rpath-transitive](tests/packages/rpath-elf-rpath-transitive/README.md) | `DT_RPATH` containing `$ORIGIN/lib` | `probe/lib/libmiddle` and `libleaf` have no project paths. The executable's transitive RPATH must resolve middle → leaf. Changing it to RUNPATH breaks this. |
 | [rpath-elf-runpath-direct](tests/packages/rpath-elf-runpath-direct/README.md) | `DT_RUNPATH` containing `$ORIGIN/lib` | `probe/lib/libmiddle` needs `$ORIGIN` for its own leaf dependency; `libleaf` has no project paths. Preserve the middle library's input tag type. Execution must succeed with direct-dependency search semantics. |
+| [rpath-elf-both-tags](tests/packages/rpath-elf-both-tags/README.md) | DT_RUNPATH: `$ORIGIN/runpath-choice`; optional inactive DT_RPATH: `$ORIGIN/rpath-choice` | Same-SONAME libraries in those two directories return 42 and 7 respectively. RUNPATH must select 42; remove its build-only `$ORIGIN/good` entry without merging in RPATH. |
+| [rpath-elf-both-tags-empty-runpath](tests/packages/rpath-elf-both-tags-empty-runpath/README.md) | DT_RUNPATH exists with an empty string; optional inactive DT_RPATH: `$ORIGIN/rpath-choice` | The executable must fail specifically because `librpath_test_choice.so` cannot be found. The smoke test requires this failure: deleting RUNPATH and activating RPATH would incorrectly find the library. |
+| [rpath-elf-mixed-rpath-runpath](tests/packages/rpath-elf-mixed-rpath-runpath/README.md) | DT_RPATH: `$ORIGIN/middle` | Middle has DT_RUNPATH: `$ORIGIN/../leaf`. Leaf has no project paths. Both tag types must survive and execution must return success. |
+| [rpath-elf-mixed-runpath-rpath](tests/packages/rpath-elf-mixed-runpath-rpath/README.md) | DT_RUNPATH: `$ORIGIN/middle` | Middle has DT_RPATH: `$ORIGIN/../leaf`. Leaf has no project paths. Both tag types must survive and execution must return success. |
+
+The two dual-tag packages prepare little-endian ELF64 binaries (the x86_64 and
+aarch64 CI targets) with both tags and assert their inputs before wheel
+processing. Their paths are checked separately per tag, including the distinction
+between an empty RUNPATH and no RUNPATH. Dropping the inactive RPATH is allowed;
+merging it into RUNPATH is not. These prepared executable paths replace the
+compiler's paths; their libraries still use the ordinary compiler-path checks.
+The empty-tag case is the suite's deliberate exception to successful native
+execution: its **smoke assertion** must pass by observing the expected loader
+failure. All other native smoke commands continue to require success.
+
+The mixed-chain packages explicitly select and assert each input tag type.
+The executable and middle library search different directories, so the
+executable's path cannot accidentally satisfy the middle library's leaf lookup.
 
 ## Unchanged compatibility fixture
 

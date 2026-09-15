@@ -89,6 +89,15 @@ def verify(name, binaries, before, spec, package, external, toolchain, meson_ver
         for binary in targets:
             matched.add(binary)
             info = binaries[binary]
+            if 'elf_paths' in rule:
+                # Dual-tag fixtures have exact, independently prepared inputs.
+                # An empty RUNPATH is intentional: removing it activates RPATH.
+                expected = {tag: [expected_path(path, binary, package, external) for path in paths]
+                            for tag, paths in rule['elf_paths'].items()}
+                error = compare_elf_paths(info, expected, rule.get('optional_elf_tags', []))
+                if error:
+                    errors.append(f'{name}: {binary}: {error}')
+                continue
             paths = info['paths']
             want = [expected_path(value, binary, package, external) for value in rule['paths']]
             got = [normalize_rpath(path) for path in paths]
@@ -131,6 +140,15 @@ def verify(name, binaries, before, spec, package, external, toolchain, meson_ver
         errors.append(f'{name}: native files missing expectations: {sorted(set(binaries) - matched)}')
 
 
+def compare_elf_paths(info, expected, optional=()):
+    actual = {tag: [normalize_rpath(path) for path in paths]
+              for tag, paths in info['paths_by_tag'].items()}
+    expected = {tag: paths for tag, paths in expected.items() if tag not in optional or tag in actual}
+    if actual != expected or Counter(info['tags']) != Counter(expected.keys()):
+        return f'expected ELF paths {expected!r}, actual {actual!r}, tags {info["tags"]!r}'
+    return None
+
+
 @pytest.mark.parametrize('package', CASES, ids=lambda name: name.replace('-', '_'))
 def test_rpath_package(package, tmp_path, rpath_toolchain):
     original = package == 'sharedlib-in-package-orig'
@@ -165,6 +183,15 @@ def test_rpath_package(package, tmp_path, rpath_toolchain):
         build_input(source, build, env, report['logs'])
         before = inspect_binaries(build)
         report['input'] = before
+        for pattern, expected in spec.get('input_elf_paths', {}).items():
+            inputs = [info for path, info in before.items() if fnmatch.fnmatchcase(path, pattern)]
+            assert len(inputs) == 1, f'Expected one input matching {pattern}'
+            expected = {tag: [expected_path(path, pattern, package, external) for path in paths]
+                        for tag, paths in expected.items()}
+            assert compare_elf_paths(inputs[0], expected) is None, f'Dual-tag input was not prepared: {inputs[0]}'
+        for pattern, tags in spec.get('input_tags', {}).items():
+            inputs = [info for path, info in before.items() if fnmatch.fnmatchcase(path, pattern)]
+            assert len(inputs) == 1 and inputs[0]['tags'] == tags, f'Unexpected input tags for {pattern}: {inputs}'
         plan = json.loads((build / 'meson-info/intro-install_plan.json').read_text())
         report['install_plan'] = plan
         removal = [path for target in plan.get('targets', {}).values() for path in target.get('build_rpaths', [])]
@@ -188,7 +215,7 @@ def test_rpath_package(package, tmp_path, rpath_toolchain):
             if PLATFORM in {'linux', 'darwin'}:
                 verify(f'wheel {iteration}', binaries, before, spec, package, external, rpath_toolchain,
                        version, removal, report['errors'])
-            snapshot = {path: (info['tags'], info['paths']) for path, info in binaries.items()}
+            snapshot = {path: (info['tags'], info['paths'], info.get('paths_by_tag')) for path, info in binaries.items()}
             if previous is not None and snapshot != previous:
                 report['errors'].append('Second wheel build changed native path entries or tag types')
             previous = snapshot

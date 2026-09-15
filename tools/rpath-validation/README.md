@@ -98,6 +98,13 @@ metadata, both wheels' headers, and assertion/runtime failures. Tests still run
 the smoke check when header assertions fail. A failed build is reported as a
 build failure, not as a successful RPATH check.
 
+The ELF loader packages also cover both tags in one binary (including an empty
+RUNPATH) and both directions of a mixed RPATH/RUNPATH dependency chain. Dual-tag
+inputs are asserted before wheel processing, and output paths are compared per
+tag. The empty-RUNPATH smoke test deliberately requires a missing-library error:
+reactivating its ignored RPATH would make the dependency load incorrectly.
+See [RPATH-TEST-SUMMARY.md](../../RPATH-TEST-SUMMARY.md#linux-loader-semantics).
+
 Routine CI compares Meson `~=1.9.0` and `~=1.12.0`: 1.9 exercises all
 platform-applicable RPATH cases, and 1.12 covers the current release series.
 This gives 18 system-compiler jobs plus three Conda-compiler jobs, down from 48.

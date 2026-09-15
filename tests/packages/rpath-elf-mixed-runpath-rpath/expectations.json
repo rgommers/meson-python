@@ -1,0 +1,35 @@
+{
+  "purpose": "Preserve a RUNPATH executable and RPATH middle library.",
+  "min_meson": "1.9",
+  "platforms": [
+    "linux"
+  ],
+  "input_tags": {
+    "probe-exe": [
+      "RUNPATH"
+    ],
+    "middle/*middle*": [
+      "RPATH"
+    ]
+  },
+  "rules": [
+    {
+      "glob": "probe/probe-exe",
+      "paths": [
+        "{origin}/middle"
+      ],
+      "tag": "RUNPATH"
+    },
+    {
+      "glob": "probe/middle/*middle*",
+      "paths": [
+        "{origin}/../leaf"
+      ],
+      "tag": "RPATH"
+    },
+    {
+      "glob": "probe/leaf/*leaf*",
+      "paths": []
+    }
+  ]
+}

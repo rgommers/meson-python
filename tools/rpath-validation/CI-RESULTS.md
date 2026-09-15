@@ -1,5 +1,38 @@
 # RPATH CI results
 
+## Local validation: additional ELF tag combinations
+
+These four packages were added after the CI runs below. The following results
+are local Linux aarch64 checks with Python 3.12, the Conda GCC toolchain, and
+Meson 1.11.2, using the same three backend implementations. They are not CI
+results, and the new packages have not yet run on x86_64.
+
+| Package | main | PR rewrite | Astra |
+| --- | --- | --- | --- |
+| `rpath-elf-both-tags` | Retains build-only RUNPATH entry | Pass | Pass |
+| `rpath-elf-both-tags-empty-runpath` | Pass | Pass | Pass |
+| `rpath-elf-mixed-rpath-runpath` | Retains build-only path | Converts executable RPATH to RUNPATH | Pass |
+| `rpath-elf-mixed-runpath-rpath` | Retains build-only path | Converts middle-library RPATH to RUNPATH | Pass |
+
+All four also pass against Astra with Meson 1.9.2 and 1.12.0. Each comparison
+asserts the input tags, builds two wheels, inspects both, and runs the installed
+smoke test after deleting source and build directories. The mixed-chain rewrite
+failures are header failures; those native smoke commands still succeed.
+
+As a separate fixture check, removing RUNPATH from copies of Astra's two
+dual-tag wheel executables makes the RPATH library load instead. The nonempty
+case changes from success to returning the wrong value. The empty case changes
+from the expected missing-library diagnostic to executing the ignored library;
+its smoke assertion rejects that change. This verifies the negative loader test
+is sensitive to reactivating RPATH.
+
+The full Astra package suite with Meson 1.11.2 reports **22 passed, 1 failed,
+3 skipped**. The failure remains `sharedlib-in-package-orig`, which loses
+`$ORIGIN/sub`; all four additions pass. Lint and whitespace checks pass.
+System-compiler validation could not run locally because `/usr/bin/cc` is not
+installed; the existing CI matrix will cover that toolchain. The matrix gains
+four packages within existing Linux jobs, with no additional jobs.
+
 ## Latest run: bounded GridFire builds
 
 Sources: [package run 34963573037](https://github.com/rgommers/meson-python/actions/runs/34963573037)

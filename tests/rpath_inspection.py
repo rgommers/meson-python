@@ -38,6 +38,7 @@ def read_rpaths(path):
         result = subprocess.run(['readelf', '-dW', path], capture_output=True, text=True, check=True)
         tags = re.findall(r'\((RPATH|RUNPATH)\).*?\[(.*)\]', result.stdout)
         return {'tags': [tag for tag, _ in tags],
+                'paths_by_tag': {tag: value.split(':') if value else [] for tag, value in tags},
                 'paths': [entry for _, value in tags for entry in value.split(':')], 'raw': result.stdout}
     result = subprocess.run(['otool', '-l', path], capture_output=True, text=True, check=True)
     paths = []
