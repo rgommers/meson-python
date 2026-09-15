@@ -144,7 +144,11 @@ remove loader overrides. Repair does not erase raw-wheel failures.
   library filename and RPATH. No runtime preloading is added. Matrix
   multiplication, a solve, and the NumPy linear-algebra test subset exercise
   native dependencies.
-- **GridFire:** use the issue-era shared-library revision, not current static
+- **GridFire (parked in CI):** the three-backend comparison takes about an hour,
+  with Linux build timeouts and a separate macOS `fourdst` import failure.
+  Revisit during final validation or ask the GridFire author to check the PR.
+  The runner remains available for manual use. Use the issue-era shared-library
+  revision, not current static
   defaults. Populate its libplugin wrap redirect before Meson configuration.
   Dependency/bootstrap failures are retained separately from wheel inspection.
 - **VapourSynth:** build the pinned upstream package and evaluate a native frame.
