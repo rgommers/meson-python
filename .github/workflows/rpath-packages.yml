@@ -20,7 +20,9 @@ jobs:
           - cbe2ac407957ac0d8b0c5365a02d21dcade12822 # main
           - 2a2a7aea39536fdb91f4bd6fb2456400a08ab6cb # PR rewrite
           - 5bda04efab456acc04673235ec09b376078f4b1c # rpath-fixes-astra; publish before running
-        meson: ['~=1.5.0', '~=1.6.0', '~=1.8.0', '~=1.9.0', '==1.11.1']
+        # 1.9 exercises all RPATH cases; 1.12 covers the current release series.
+        # Run older versions once more during the final compatibility review.
+        meson: ['~=1.9.0', '~=1.12.0']
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:

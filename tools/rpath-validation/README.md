@@ -98,11 +98,18 @@ metadata, both wheels' headers, and assertion/runtime failures. Tests still run
 the smoke check when header assertions fail. A failed build is reported as a
 build failure, not as a successful RPATH check.
 
-The Meson comparison points are 1.5, 1.6, 1.8, 1.9, and a modern release. Packages
-requiring installation metadata skip before 1.6; those requiring build-path
-removal skip before 1.9. Other packages allow recorded build paths before 1.9,
-but still require successful native execution. No test silently substitutes
-linker flags for an unsupported `install_rpath` feature.
+Routine CI compares Meson `~=1.9.0` and `~=1.12.0`: 1.9 exercises all
+platform-applicable RPATH cases, and 1.12 covers the current release series.
+This gives 18 system-compiler jobs plus three Conda-compiler jobs, down from 48.
+The completed 1.5, 1.6, and 1.8 comparisons in [CI-RESULTS.md](CI-RESULTS.md)
+locate the older compatibility boundaries; rerun those versions once during
+final compatibility review rather than on every iteration.
+
+The runner retains support for that older-version sweep. Packages requiring
+installation metadata skip before 1.6; those requiring build-path removal skip
+before 1.9. Other packages allow recorded build paths before 1.9, but still
+require successful native execution. No test silently substitutes linker flags
+for an unsupported `install_rpath` feature.
 
 The one-time `rpath-packages.yml` workflow runs these comparisons on Linux,
 macOS arm64, macOS Intel, and a Conda compiler environment. The three referenced
