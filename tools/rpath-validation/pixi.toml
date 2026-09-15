@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: 2026 The meson-python developers
+#
+# SPDX-License-Identifier: MIT
+
+[workspace]
+name = "rpath-downstream-validation"
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-arm64"]
+
+[dependencies]
+python = "3.12.*"
+c-compiler = "*"
+cxx-compiler = "*"
+meson = "1.11.1.*"
+ninja = "*"
+cmake = "*"
+pkg-config = "*"
+libboost-devel = "1.92.*"
+gtest = "1.18.*"
+zimg = ">=3.0.5"
+pip = "*"
+pytest = "*"
+packaging = "*"
+pyproject-metadata = "*"
+python-build = "*"
+
+[target.linux-64.dependencies]
+patchelf = "*"

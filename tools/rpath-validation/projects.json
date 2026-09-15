@@ -1,0 +1,30 @@
+{
+  "numpy": {
+    "repository": "https://github.com/numpy/numpy.git",
+    "revision": "98197be7070a106e60af01e26bd481df97b6aa37",
+    "runtime": ["scipy-openblas64==0.3.31.22.0"],
+    "setup": ["-Dblas=scipy-openblas", "-Duse-ilp64=true", "-Dallow-noblas=false"],
+    "smoke": "import numpy as np\na = np.array([[3., 1.], [1., 2.]])\nnp.testing.assert_allclose(a @ a, [[10., 5.], [5., 5.]])\nnp.testing.assert_allclose(a @ np.linalg.solve(a, [1., 0.]), [1., 0.], atol=1e-14)\nassert np.test(label='fast', tests=['numpy.linalg.tests'], verbose=1)\n"
+  },
+  "gridfire": {
+    "repository": "https://github.com/tboudreaux/GridFire.git",
+    "revision": "56f93420527912cf94da1d52bd0d5c32bd0311a9",
+    "runtime": [],
+    "setup": ["-Dbuild-tests=false", "-Ddefault_library=shared"],
+    "smoke": "import gridfire\nassert gridfire.__file__\nprint('GridFire native package loaded:', gridfire.__file__)\n"
+  },
+  "vapoursynth": {
+    "repository": "https://github.com/vapoursynth/vapoursynth.git",
+    "revision": "5b2d5562726a91d9a75441cc4728a90e6c9f4f27",
+    "runtime": [],
+    "setup": [],
+    "smoke": "import vapoursynth as vs\nframe = vs.core.std.BlankClip(width=32, height=32, length=1).get_frame(0)\nassert frame.width == 32 and frame.height == 32\n"
+  },
+  "dwave-optimization": {
+    "repository": "https://github.com/dwavesystems/dwave-optimization.git",
+    "revision": "0962fc5e3ac4adfec1d2b592ef7a0b3c016f39cd",
+    "runtime": ["numpy==2.0.0"],
+    "setup": ["-Dblas=disabled", "-Dbuild-tests=disabled"],
+    "smoke": "from dwave.optimization import Model\nimport dwave.optimization.symbols\nmodel = Model()\nx = model.binary(3)\nmodel.minimize(x.sum())\nmodel.states.resize(1)\nwith model.lock():\n    x.set_state(0, [1, 0, 1])\n    assert model.objective.state(0) == 2\n"
+  }
+}

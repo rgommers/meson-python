@@ -1,0 +1,72 @@
+# SPDX-FileCopyrightText: 2026 The meson-python developers
+#
+# SPDX-License-Identifier: MIT
+
+name: RPATH downstream comparison (one-time validation)
+on:
+  push:
+    branches: [rpath-regression-tests]
+  workflow_dispatch:
+    inputs:
+      project:
+        description: Project to validate (all runs all four)
+        type: choice
+        default: all
+        options: [all, numpy, gridfire, vapoursynth, dwave-optimization]
+      repair:
+        description: Also inspect and test repaired wheels
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  downstream:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14]
+        project: [numpy, gridfire, vapoursynth, dwave-optimization]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: prefix-dev/setup-pixi@f00437f565399d418b0acc85936d12c1fb668347 # v0.10.1
+        if: github.event_name == 'push' || inputs.project == 'all' || inputs.project == matrix.project
+        with:
+          pixi-version: v0.77.1
+          manifest-path: tools/rpath-validation/pixi.toml
+          cache: false
+      - name: Compare the three backends with one dependency lock
+        if: github.event_name == 'push' || inputs.project == 'all' || inputs.project == matrix.project
+        env:
+          PROJECT: ${{ matrix.project }}
+          REPAIR: ${{ inputs.repair }}
+        run: |
+          result=0
+          repair_args=()
+          if [ "$REPAIR" = true ]; then repair_args+=(--repair); fi
+          mkdir -p reports
+          for revision in cbe2ac4 2a2a7ae 5bda04e; do
+            git worktree add --detach "${RUNNER_TEMP}/backend-${revision}" "$revision"
+            pixi run --manifest-path tools/rpath-validation/pixi.toml python tools/rpath-validation/run.py "$PROJECT" \
+              --backend "${RUNNER_TEMP}/backend-${revision}" \
+              --output "${GITHUB_WORKSPACE}/reports/${revision}" \
+              --lock "${GITHUB_WORKSPACE}/reports/dependencies.lock" \
+              "${repair_args[@]}" || result=1
+          done
+          exit "$result"
+        shell: bash
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: downstream-${{ matrix.project }}-${{ matrix.os }}
+          path: |
+            reports/**/report.json
+            reports/**/commands.json
+            reports/dependencies.lock
+            reports/**/wheels/*.whl
+            reports/**/repaired/*.whl
+            tools/rpath-validation/pixi.lock
