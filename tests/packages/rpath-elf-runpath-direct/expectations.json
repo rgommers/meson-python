@@ -1,0 +1,26 @@
+{
+  "purpose": "Preserve DT_RUNPATH and direct dependency resolution.",
+  "min_meson": "1.9",
+  "platforms": [
+    "linux"
+  ],
+  "rules": [
+    {
+      "glob": "probe/probe-exe",
+      "paths": [
+        "{origin}/lib"
+      ],
+      "tag": "RUNPATH"
+    },
+    {
+      "glob": "probe/lib/*middle*",
+      "paths": [
+        "{origin}"
+      ]
+    },
+    {
+      "glob": "probe/lib/*leaf*",
+      "paths": []
+    }
+  ]
+}

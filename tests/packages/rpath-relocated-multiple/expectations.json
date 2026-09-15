@@ -1,0 +1,26 @@
+{
+  "purpose": "Two distinct build-library paths must become one relocation path (issue #813).",
+  "min_meson": "0.64",
+  "platforms": [
+    "linux",
+    "darwin"
+  ],
+  "rules": [
+    {
+      "glob": "probe/_probe*",
+      "paths": [
+        "{libs}"
+      ]
+    },
+    {
+      "glob": "**/*second*",
+      "paths": []
+    },
+    {
+      "glob": "**/*first*",
+      "paths": []
+    }
+  ],
+  "ldflags": false,
+  "legacy": false
+}

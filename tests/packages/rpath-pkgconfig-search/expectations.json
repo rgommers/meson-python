@@ -1,0 +1,17 @@
+{
+  "purpose": "Preserve the absolute external RPATH supplied by pkg-config; use conventional -L/-l linking.",
+  "min_meson": "0.64",
+  "platforms": [
+    "linux",
+    "darwin"
+  ],
+  "rules": [
+    {
+      "glob": "probe/_probe*",
+      "paths": [
+        "{external}/lib"
+      ]
+    }
+  ],
+  "prepare": true
+}

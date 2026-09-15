@@ -1,0 +1,10 @@
+{
+  "purpose": "Preserve successful imports of the byte-for-byte original sharedlib-in-package fixture.",
+  "min_meson": "0.64",
+  "platforms": ["linux", "darwin", "win32"],
+  "rules": [
+    {"glob": "mypkg/_example*", "paths": ["{origin}", "{origin}/sub"]},
+    {"glob": "mypkg/*examplelib.*", "paths": []},
+    {"glob": "mypkg/sub/*examplelib2.*", "paths": []}
+  ]
+}

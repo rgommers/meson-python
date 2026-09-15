@@ -1,0 +1,14 @@
+{
+  "purpose": "Remove all build-only entries without creating an empty dynamic path.",
+  "min_meson": "1.9",
+  "platforms": [
+    "linux",
+    "darwin"
+  ],
+  "rules": [
+    {
+      "glob": "probe/_probe*",
+      "paths": []
+    }
+  ]
+}

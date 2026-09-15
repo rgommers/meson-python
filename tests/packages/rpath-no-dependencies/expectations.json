@@ -1,0 +1,14 @@
+{
+  "purpose": "No project dependency must not introduce a relocation RPATH.",
+  "min_meson": "0.64",
+  "platforms": [
+    "linux",
+    "darwin"
+  ],
+  "rules": [
+    {
+      "glob": "probe/_probe*",
+      "paths": []
+    }
+  ]
+}

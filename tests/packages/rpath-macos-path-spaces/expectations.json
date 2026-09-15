@@ -1,0 +1,17 @@
+{
+  "purpose": "Preserve exact LC_RPATH strings containing spaces, parentheses and trailing whitespace.",
+  "min_meson": "1.9",
+  "platforms": [
+    "darwin"
+  ],
+  "rules": [
+    {
+      "glob": "probe/_probe*",
+      "paths": [
+        "{origin}/some path/(library)",
+        "{origin}/trailing ",
+        "{origin}/new path/(library)"
+      ]
+    }
+  ]
+}

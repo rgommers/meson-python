@@ -1,0 +1,28 @@
+{
+  "purpose": "Each edge in an in-package dependency chain needs its own relative path.",
+  "min_meson": "1.6",
+  "platforms": [
+    "linux",
+    "darwin"
+  ],
+  "rules": [
+    {
+      "glob": "probe/_probe*",
+      "paths": [
+        "{origin}"
+      ]
+    },
+    {
+      "glob": "**/*second*",
+      "paths": []
+    },
+    {
+      "glob": "**/*first*",
+      "paths": [
+        "{origin}/sub"
+      ]
+    }
+  ],
+  "ldflags": false,
+  "legacy": false
+}

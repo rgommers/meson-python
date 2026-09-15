@@ -1,0 +1,24 @@
+{
+  "purpose": "Preserve DT_RPATH transitive loader semantics.",
+  "min_meson": "1.9",
+  "platforms": [
+    "linux"
+  ],
+  "rules": [
+    {
+      "glob": "probe/probe-exe",
+      "paths": [
+        "{origin}/lib"
+      ],
+      "tag": "RPATH"
+    },
+    {
+      "glob": "probe/lib/*middle*",
+      "paths": []
+    },
+    {
+      "glob": "probe/lib/*leaf*",
+      "paths": []
+    }
+  ]
+}

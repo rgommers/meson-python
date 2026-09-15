@@ -1,0 +1,23 @@
+{
+  "purpose": "Do not replace an intentional relative linker-argument path during relocation.",
+  "min_meson": "0.64",
+  "platforms": [
+    "linux",
+    "darwin"
+  ],
+  "rules": [
+    {
+      "glob": "probe/_probe*",
+      "paths": [
+        "{origin}/user",
+        "{libs}"
+      ]
+    },
+    {
+      "glob": "**/*first*",
+      "paths": []
+    }
+  ],
+  "ldflags": false,
+  "legacy": false
+}

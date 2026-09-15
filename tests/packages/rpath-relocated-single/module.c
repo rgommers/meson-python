@@ -1,0 +1,12 @@
+// SPDX-FileCopyrightText: 2026 The meson-python developers
+//
+// SPDX-License-Identifier: MIT
+
+#include <Python.h>
+extern int first(void);
+static PyObject *value(PyObject *self, PyObject *args) {
+    return PyLong_FromLong(first());
+}
+static PyMethodDef methods[] = { {"value", value, METH_NOARGS, NULL}, {NULL, NULL, 0, NULL} };
+static struct PyModuleDef module = { PyModuleDef_HEAD_INIT, "_probe", NULL, -1, methods };
+PyMODINIT_FUNC PyInit__probe(void) { return PyModule_Create(&module); }

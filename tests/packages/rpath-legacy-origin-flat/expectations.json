@@ -1,0 +1,22 @@
+{
+  "purpose": "Preserve successful imports for a historically working literal-$ORIGIN layout, including macOS.",
+  "min_meson": "0.64",
+  "platforms": [
+    "linux",
+    "darwin"
+  ],
+  "rules": [
+    {
+      "glob": "probe/_probe*",
+      "paths": [
+        "{origin}"
+      ]
+    },
+    {
+      "glob": "**/*first*",
+      "paths": []
+    }
+  ],
+  "ldflags": false,
+  "legacy": true
+}

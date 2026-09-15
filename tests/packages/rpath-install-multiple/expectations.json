@@ -1,0 +1,17 @@
+{
+  "purpose": "Split colon-separated install_rpath and deduplicate each directory.",
+  "min_meson": "1.6",
+  "platforms": [
+    "linux",
+    "darwin"
+  ],
+  "rules": [
+    {
+      "glob": "probe/_probe*",
+      "paths": [
+        "{origin}/one",
+        "{origin}/two"
+      ]
+    }
+  ]
+}

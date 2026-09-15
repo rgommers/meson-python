@@ -1,0 +1,31 @@
+{
+  "purpose": "Preserve an in-package private path alongside a single relocated-library path.",
+  "min_meson": "1.6",
+  "platforms": [
+    "linux",
+    "darwin"
+  ],
+  "rules": [
+    {
+      "glob": "probe/_probe*",
+      "paths": [
+        "{origin}/private",
+        "{libs}"
+      ]
+    },
+    {
+      "glob": "**/*second*",
+      "paths": []
+    },
+    {
+      "glob": "**/*first*",
+      "paths": []
+    },
+    {
+      "glob": "**/*private*",
+      "paths": []
+    }
+  ],
+  "ldflags": false,
+  "legacy": false
+}

@@ -1,0 +1,28 @@
+{
+  "purpose": "A relocated library must find its own relocated dependency.",
+  "min_meson": "0.64",
+  "platforms": [
+    "linux",
+    "darwin"
+  ],
+  "rules": [
+    {
+      "glob": "probe/_probe*",
+      "paths": [
+        "{libs}"
+      ]
+    },
+    {
+      "glob": "**/*second*",
+      "paths": []
+    },
+    {
+      "glob": "**/*first*",
+      "paths": [
+        "{libs}"
+      ]
+    }
+  ],
+  "ldflags": false,
+  "legacy": false
+}

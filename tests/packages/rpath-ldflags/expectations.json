@@ -1,0 +1,28 @@
+{
+  "purpose": "Preserve intentional relative and absolute LDFLAGS paths during relocation.",
+  "min_meson": "0.64",
+  "platforms": [
+    "linux",
+    "darwin"
+  ],
+  "rules": [
+    {
+      "glob": "probe/_probe*",
+      "paths": [
+        "{origin}/user",
+        "{external}",
+        "{libs}"
+      ]
+    },
+    {
+      "glob": "**/*first*",
+      "paths": [
+        "{origin}/user",
+        "{external}",
+        "{libs}"
+      ]
+    }
+  ],
+  "ldflags": true,
+  "legacy": false
+}

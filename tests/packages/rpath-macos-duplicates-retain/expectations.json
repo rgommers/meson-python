@@ -1,0 +1,16 @@
+{
+  "purpose": "Deduplicate an existing LC_RPATH while retaining its path.",
+  "min_meson": "1.9",
+  "platforms": [
+    "darwin"
+  ],
+  "rules": [
+    {
+      "glob": "probe/_probe*",
+      "paths": [
+        "{origin}/dupa"
+      ]
+    }
+  ],
+  "input_duplicate": "@loader_path/dupa"
+}

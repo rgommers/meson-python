@@ -1,0 +1,14 @@
+{
+  "purpose": "Delete all occurrences of duplicated build-only LC_RPATH.",
+  "min_meson": "1.9",
+  "platforms": [
+    "darwin"
+  ],
+  "rules": [
+    {
+      "glob": "probe/_probe*",
+      "paths": []
+    }
+  ],
+  "input_duplicate": "@loader_path/dupa"
+}

@@ -1,0 +1,27 @@
+{
+  "purpose": "Explicit installation paths must precede preserved paths: same SONAME, different answers.",
+  "min_meson": "1.9",
+  "platforms": [
+    "linux"
+  ],
+  "rules": [
+    {
+      "glob": "probe/probe-exe",
+      "paths": [
+        "{origin}/private",
+        "{origin}/external"
+      ],
+      "ordered": true
+    },
+    {
+      "glob": "probe/external/*choice*",
+      "input_glob": "external/*choice*",
+      "paths": []
+    },
+    {
+      "glob": "probe/private/*choice*",
+      "input_glob": "private/*choice*",
+      "paths": []
+    }
+  ]
+}

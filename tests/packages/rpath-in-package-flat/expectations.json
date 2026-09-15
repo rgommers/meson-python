@@ -1,0 +1,22 @@
+{
+  "purpose": "A platform-correct installation anchor locates a sibling library.",
+  "min_meson": "1.6",
+  "platforms": [
+    "linux",
+    "darwin"
+  ],
+  "rules": [
+    {
+      "glob": "probe/_probe*",
+      "paths": [
+        "{origin}"
+      ]
+    },
+    {
+      "glob": "**/*first*",
+      "paths": []
+    }
+  ],
+  "ldflags": false,
+  "legacy": false
+}
