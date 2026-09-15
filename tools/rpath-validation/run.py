@@ -6,7 +6,6 @@
 
 import argparse
 import hashlib
-import importlib.util
 import json
 import os
 import pathlib
@@ -23,10 +22,33 @@ import tomllib
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-# Reuse only the independent platform-tool reader, not backend RPATH code.
-spec = importlib.util.spec_from_file_location('rpath_inspection', ROOT / 'tests/test_rpath_packages.py')
-inspection = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(inspection)
+# Make the checkout's shared, standard-library-only inspector importable.
+sys.path.insert(0, str(ROOT))
+
+from tests.rpath_inspection import inspect_binaries, normalize_rpath  # noqa: E402
+
+
+def check_paths(binaries, install_plan, forbidden_prefixes):
+    """Return all header problems without stopping the installed-wheel test."""
+    failures = []
+    for name, info in binaries.items():
+        targets = [target for filename, target in install_plan.get('targets', {}).items()
+                   if pathlib.Path(filename).name == pathlib.Path(name).name]
+        build_paths = {normalize_rpath(path) for target in targets for path in target.get('build_rpaths', [])}
+        install_paths = {normalize_rpath(path) for target in targets
+                         for path in (target.get('install_rpath') or '').split(':') if path}
+        for path, count in Counter(info['paths']).items():
+            if not path or not path.strip('X'):
+                failures.append(f'{name}: empty or padding RPATH {path!r}')
+            if normalize_rpath(path) in build_paths - install_paths:
+                failures.append(f'{name}: retained build-only RPATH {path!r}')
+            if count > 1:
+                failures.append(f'{name}: duplicate {path!r} ({count} copies)')
+            if any(str(prefix) in path for prefix in forbidden_prefixes):
+                failures.append(f'{name}: build/source path {path!r}')
+            if sys.platform == 'darwin' and '$ORIGIN' in path:
+                failures.append(f'{name}: literal macOS $ORIGIN: {path!r}')
+    return failures
 
 
 def main():
@@ -47,16 +69,18 @@ def main():
     env.pop('PYTHONPATH', None)
 
     def run(command, cwd=output, check=True):
-        result = subprocess.run([str(arg) for arg in command], cwd=cwd, env=env, capture_output=True, text=True)
-        report['commands'].append({'command': list(map(str, command)), 'cwd': str(cwd),
+        command = list(map(str, command))
+        result = subprocess.run(command, cwd=cwd, env=env, capture_output=True, text=True)
+        report['commands'].append({'command': command, 'cwd': str(cwd),
                                    'returncode': result.returncode, 'stdout': result.stdout, 'stderr': result.stderr})
         (output / 'commands.json').write_text(json.dumps(report['commands'], indent=2) + '\n')
-        print(f'[{result.returncode}] {" ".join(map(str, command))}', flush=True)
+        print(f'[{result.returncode}] {shlex.join(command)}', flush=True)
         if check and result.returncode:
             raise RuntimeError(result.stdout + '\n' + result.stderr)
         return result
 
     try:
+        # Check out the pinned project and record the native toolchain.
         run(['git', 'init', source])
         run(['git', 'remote', 'add', 'origin', config['repository']], cwd=source)
         run(['git', 'fetch', '--depth=1', 'origin', config['revision']], cwd=source)
@@ -65,6 +89,7 @@ def main():
         report['submodules'] = run(['git', 'submodule', 'status', '--recursive'], cwd=source).stdout
         report['backend_commit'] = run(['git', 'rev-parse', 'HEAD'], cwd=backend).stdout.strip()
         report['compiler'] = run([*shlex.split(env.get('CC', 'cc')), '--version']).stdout
+        # Resolve dependencies once, then reuse their constraints across backends.
         build_environment = output / 'build-env'
         venv.EnvBuilder(with_pip=True).create(build_environment)
         python = build_environment / 'bin/python'
@@ -98,6 +123,7 @@ def main():
             args.lock.write_text('\n'.join(line for line in report['dependencies'].splitlines()
                                          if not line.lower().startswith('meson-python')) + '\n')
         constraints = ['-c', str(args.lock.resolve())] if args.lock else []
+        # Build a raw wheel, then hide its complete source/build checkout.
         build = source / 'build-rpath'
         command = [python, '-m', 'build', '--wheel', '--no-isolation', '--skip-dependency-check',
                    '-Cbuild-dir=' + str(build), '-Ccompile-args=-j2']
@@ -117,26 +143,9 @@ def main():
             unpacked = output / (label + '-unpacked')
             with zipfile.ZipFile(wheel) as archive:
                 archive.extractall(unpacked)
-            binaries = inspection.inspect(unpacked)
-            failures = []
-            for name, info in binaries.items():
-                targets = [target for filename, target in report['install_plan'].get('targets', {}).items()
-                           if pathlib.Path(filename).name == pathlib.Path(name).name]
-                removed = {inspection.norm(path) for target in targets
-                           for path in target.get('build_rpaths', [])}
-                explicit = {inspection.norm(path) for target in targets
-                            for path in (target.get('install_rpath') or '').split(':') if path}
-                for path, count in Counter(info['paths']).items():
-                    if not path or not path.strip('X'):
-                        failures.append(f'{name}: empty or padding RPATH {path!r}')
-                    if inspection.norm(path) in removed - explicit:
-                        failures.append(f'{name}: retained build-only RPATH {path!r}')
-                    if count > 1:
-                        failures.append(f'{name}: duplicate {path!r} ({count} copies)')
-                    if str(source) in path or (label == 'repaired' and str(build_environment) in path):
-                        failures.append(f'{name}: build/source path {path!r}')
-                    if sys.platform == 'darwin' and '$ORIGIN' in path:
-                        failures.append(f'{name}: literal macOS $ORIGIN: {path!r}')
+            binaries = inspect_binaries(unpacked)
+            forbidden = [source, build_environment] if label == 'repaired' else [source]
+            failures = check_paths(binaries, report['install_plan'], forbidden)
             environment = output / (label + '-env')
             venv.EnvBuilder(with_pip=True).create(environment)
             target_python = environment / 'bin/python'

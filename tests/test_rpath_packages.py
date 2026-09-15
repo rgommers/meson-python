@@ -13,7 +13,6 @@ import json
 import os
 import pathlib
 import posixpath
-import re
 import shutil
 import subprocess
 import sys
@@ -24,63 +23,23 @@ from collections import Counter
 
 import pytest
 
+from .rpath_inspection import PLATFORM, inspect_binaries, normalize_rpath
+
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PACKAGES = ROOT / 'tests/packages'
 CASES = sorted(path.name for path in PACKAGES.glob('rpath-*') if (path / 'expectations.json').is_file())
 CASES.append('sharedlib-in-package-orig')
 BACKEND = pathlib.Path(os.environ.get('MESONPY_RPATH_BACKEND', ROOT)).resolve()
-PLATFORM = 'linux' if sys.platform.startswith('linux') else sys.platform
 
 
 def run(args, cwd, env, log):
-    result = subprocess.run([os.fspath(arg) for arg in args], cwd=cwd, env=env, capture_output=True, text=True)
-    log.append({'command': [os.fspath(arg) for arg in args], 'cwd': os.fspath(cwd),
+    command = list(map(os.fspath, args))
+    result = subprocess.run(command, cwd=cwd, env=env, capture_output=True, text=True)
+    log.append({'command': command, 'cwd': os.fspath(cwd),
                 'returncode': result.returncode, 'stdout': result.stdout, 'stderr': result.stderr})
     assert result.returncode == 0, f'Command failed: {args}\n{result.stdout}\n{result.stderr}'
     return result.stdout
-
-
-def native(path):
-    if not path.is_file():
-        return False
-    with path.open('rb') as stream:
-        header = stream.read(20)
-    if header[:4] == b'\x7fELF':
-        endian = 'little' if header[5] == 1 else 'big'
-        return int.from_bytes(header[16:18], endian) in {2, 3}
-    if header[:4] in {b'\xcf\xfa\xed\xfe', b'\xce\xfa\xed\xfe'}:
-        return int.from_bytes(header[12:16], 'little') in {2, 6, 8}
-    if header[:4] in {b'\xfe\xed\xfa\xcf', b'\xfe\xed\xfa\xce'}:
-        return int.from_bytes(header[12:16], 'big') in {2, 6, 8}
-    return False
-
-
-def headers(path):
-    """Use platform tools, never the RPATH implementation under test."""
-    if PLATFORM == 'linux':
-        result = subprocess.run(['readelf', '-dW', path], capture_output=True, text=True, check=True)
-        tags = re.findall(r'\((RPATH|RUNPATH)\).*?\[(.*)\]', result.stdout)
-        return {'tags': [tag for tag, _ in tags],
-                'paths': [entry for _, value in tags for entry in value.split(':')], 'raw': result.stdout}
-    result = subprocess.run(['otool', '-l', path], capture_output=True, text=True, check=True)
-    paths = []
-    pending = False
-    for line in result.stdout.splitlines():
-        line = line.lstrip()
-        if line.startswith('cmd '):
-            pending = line.split() == ['cmd', 'LC_RPATH']
-        elif pending and line.startswith('path '):
-            match = re.fullmatch(r'path (.*) \(offset [0-9]+\)', line)
-            assert match, f'Unrecognized otool path: {line!r}'
-            paths.append(match[1])
-            pending = False
-    return {'tags': ['LC_RPATH'] * len(paths), 'paths': paths, 'raw': result.stdout}
-
-
-def inspect(directory):
-    return {path.relative_to(directory).as_posix(): headers(path)
-            for path in sorted(directory.rglob('*')) if native(path)}
 
 
 def environment():
@@ -107,29 +66,22 @@ def rpath_toolchain(tmp_path_factory):
     shutil.copytree(PACKAGES / 'rpath-no-dependencies', source)
     build = temporary / 'build'
     build_input(source, build, environment(), [])
-    return next(info['paths'] for name, info in inspect(build).items() if pathlib.Path(name).name.startswith('_probe.'))
-
-
-def norm(path):
-    # Accept Meson's equivalent origin/ and origin spellings, while preserving
-    # meaningful spaces. Duplicate detection always examines raw entries first.
-    for anchor in ['$ORIGIN', '@loader_path']:
-        if path == anchor or path.startswith(anchor + '/'):
-            suffix = posixpath.normpath(path[len(anchor):].lstrip('/'))
-            return anchor if suffix == '.' else anchor + '/' + suffix
-    return posixpath.normpath(path)
+    return next(info['paths'] for name, info in inspect_binaries(build).items()
+                if pathlib.Path(name).name.startswith('_probe.'))
 
 
 def expected_path(value, binary, package, external):
     origin = '@loader_path' if PLATFORM == 'darwin' else '$ORIGIN'
     libdir = f'.{package.replace("-", "_")}.mesonpy.libs'
     relative = posixpath.relpath(libdir, posixpath.dirname(binary))
-    return norm(value.replace('{origin}', origin).replace('{libs}', origin + '/' + relative)
+    return normalize_rpath(value.replace('{origin}', origin).replace('{libs}', origin + '/' + relative)
                 .replace('{external}', external.as_posix()))
 
 
 def verify(name, binaries, before, spec, package, external, toolchain, meson_version, removal, errors):
     matched = set()
+    toolchain_paths = set(map(normalize_rpath, toolchain))
+    build_paths = set(map(normalize_rpath, removal))
     for rule in spec['rules']:
         targets = [binary for binary in binaries if fnmatch.fnmatchcase(binary, rule['glob'])]
         if not targets:
@@ -139,19 +91,22 @@ def verify(name, binaries, before, spec, package, external, toolchain, meson_ver
             info = binaries[binary]
             paths = info['paths']
             want = [expected_path(value, binary, package, external) for value in rule['paths']]
-            got = [norm(path) for path in paths]
-            original = [record for path, record in before.items()
-                        if (fnmatch.fnmatchcase(path, rule['input_glob']) if 'input_glob' in rule
-                            else pathlib.Path(path).name == pathlib.Path(binary).name)]
+            got = [normalize_rpath(path) for path in paths]
+            if 'input_glob' in rule:
+                original = [record for path, record in before.items() if fnmatch.fnmatchcase(path, rule['input_glob'])]
+            else:
+                original = [record for path, record in before.items() if pathlib.Path(path).name == pathlib.Path(binary).name]
             assert len(original) == 1, f'Cannot identify original binary: {binary}'
             old = original[0]
-            allowed = set(map(norm, toolchain)) | set(want)
+            wanted_paths, actual_paths = set(want), set(got)
+            old_paths = set(map(normalize_rpath, old['paths']))
+            allowed = toolchain_paths | wanted_paths
             if meson_version < (1, 9):
-                allowed.update(map(norm, old['paths']))
+                allowed.update(old_paths)
             duplicates = [path for path, count in Counter(paths).items() if count > 1]
-            missing = set(want) - set(got)
-            unexpected = set(got) - allowed
-            lost_toolchain = set(map(norm, toolchain)) & set(map(norm, old['paths'])) - set(got)
+            missing = wanted_paths - actual_paths
+            unexpected = actual_paths - allowed
+            lost_toolchain = (toolchain_paths & old_paths) - actual_paths
             if duplicates or missing or unexpected or lost_toolchain:
                 errors.append(f'{name}: {binary}: expected {want!r} plus toolchain {toolchain!r}; actual {paths!r}; '
                               f'duplicates={duplicates!r}, missing={sorted(missing)!r}, '
@@ -159,12 +114,13 @@ def verify(name, binaries, before, spec, package, external, toolchain, meson_ver
             if any(not path or not path.strip('X') for path in paths):
                 errors.append(f'{name}: {binary}: empty or padding RPATH entry {paths!r}')
             if meson_version >= (1, 9):
-                unwanted = set(map(norm, removal)) - set(want) - set(map(norm, toolchain))
-                if unwanted & set(got):
-                    errors.append(f'{name}: {binary}: retained build-only paths {sorted(unwanted & set(got))}')
+                retained_build_paths = actual_paths & (build_paths - wanted_paths - toolchain_paths)
+                if retained_build_paths:
+                    errors.append(f'{name}: {binary}: retained build-only paths {sorted(retained_build_paths)}')
             if PLATFORM == 'linux':
-                tag = rule.get('tag')
-                expected_tags = [tag] if tag else old['tags'] if paths else []
+                expected_tags = old['tags'] if paths else []
+                if 'tag' in rule:
+                    expected_tags = [rule['tag']]
                 if info['tags'] != expected_tags:
                     errors.append(f'{name}: {binary}: expected tags {expected_tags}, actual {info["tags"]}')
                 if rule.get('ordered') and not missing:
@@ -178,8 +134,8 @@ def verify(name, binaries, before, spec, package, external, toolchain, meson_ver
 @pytest.mark.parametrize('package', CASES, ids=lambda name: name.replace('-', '_'))
 def test_rpath_package(package, tmp_path, rpath_toolchain):
     original = package == 'sharedlib-in-package-orig'
-    spec = (json.loads((ROOT / 'tests/rpath-original-expectations.json').read_text()) if original else
-            json.loads((PACKAGES / package / 'expectations.json').read_text()))
+    expectations = ROOT / 'tests/rpath-original-expectations.json' if original else PACKAGES / package / 'expectations.json'
+    spec = json.loads(expectations.read_text())
     if PLATFORM not in spec['platforms']:
         pytest.skip(f'{package}: requires {spec["platforms"]}')
     version_string = subprocess.check_output(['meson', '--version'], text=True).strip()
@@ -205,8 +161,9 @@ def test_rpath_package(package, tmp_path, rpath_toolchain):
             report['pkg_config'] = (external / 'lib/pkgconfig/external.pc').read_text()
         if spec.get('ldflags'):
             env['LDFLAGS'] = env.get('LDFLAGS', '') + f' -Wl,-rpath,{origin}/user -Wl,-rpath,{external}'
+        # Capture the linked input before wheel postprocessing.
         build_input(source, build, env, report['logs'])
-        before = inspect(build)
+        before = inspect_binaries(build)
         report['input'] = before
         plan = json.loads((build / 'meson-info/intro-install_plan.json').read_text())
         report['install_plan'] = plan
@@ -216,6 +173,7 @@ def test_rpath_package(package, tmp_path, rpath_toolchain):
             assert probe['paths'].count(spec['input_duplicate']) == 2, 'Duplicate input was not prepared'
         wheels = tmp_path / 'wheels'
         wheels.mkdir()
+        # A reused build directory must produce the same paths on both runs.
         previous = None
         for iteration in range(2):
             run([sys.executable, '-m', 'build', '--wheel', '--no-isolation', '--skip-dependency-check',
@@ -225,7 +183,7 @@ def test_rpath_package(package, tmp_path, rpath_toolchain):
             unpacked = tmp_path / f'wheel-{iteration}'
             with zipfile.ZipFile(wheel) as archive:
                 archive.extractall(unpacked)
-            binaries = inspect(unpacked)
+            binaries = inspect_binaries(unpacked)
             report[f'wheel_{iteration}'] = binaries
             if PLATFORM in {'linux', 'darwin'}:
                 verify(f'wheel {iteration}', binaries, before, spec, package, external, rpath_toolchain,
@@ -234,6 +192,7 @@ def test_rpath_package(package, tmp_path, rpath_toolchain):
             if previous is not None and snapshot != previous:
                 report['errors'].append('Second wheel build changed native path entries or tag types')
             previous = snapshot
+        # Exercise the installed native code after removing build products.
         smoke = (ROOT / 'tests/rpath-original-smoke.py').read_text() if original else (source / 'smoke.py').read_text()
         shutil.rmtree(build)
         shutil.rmtree(source)

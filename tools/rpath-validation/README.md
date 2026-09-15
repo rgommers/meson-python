@@ -4,6 +4,22 @@ This is a diagnostic suite for discussing the RPATH rewrite. Failures are normal
 assertion failures, including compatibility regressions; there are no xfails.
 No production changes are included in the test-suite commits.
 
+The standalone [package expectation summary](../../RPATH-TEST-SUMMARY.md) collects
+all cases, including Linux tags, macOS load-command counts, and secondary-library
+paths.
+
+## Reading the runners
+
+`tests/test_rpath_packages.py` builds the small packages and compares each wheel
+against its package's `expectations.json`. `tests/rpath_inspection.py` contains the
+shared, standard-library-only binary inspector, which uses `readelf` or `otool`
+independently of the backend under test.
+
+`run.py` checks out and builds a downstream project, then installs and exercises
+its wheel. Its `check_paths()` function collects header problems separately from
+the build/install flow, so header failures do not prevent the runtime check.
+It imports the shared inspector directly and does not need to import pytest.
+
 ## Start with the small packages
 
 From the repository root, with a C compiler, Meson, Ninja, `build`, `pytest`, and
