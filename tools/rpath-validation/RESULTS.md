@@ -1,7 +1,10 @@
 # Local RPATH comparison results
 
+For the completed second CI comparison, see [CI-RESULTS.md](CI-RESULTS.md).
+The earlier local and first-run observations below are retained as history.
+
 Executed on Linux aarch64 with Python 3.12 and the Conda compiler environment.
-The input binaries normally carry DT_RPATH in this environment. Native macOS downstream smoke results are recorded below; package results and Windows execution remain unavailable.
+The input binaries normally carry DT_RPATH in this environment. Native macOS package and downstream results are in [CI-RESULTS.md](CI-RESULTS.md); Windows execution remains untested.
 
 Backend code: main `cbe2ac4`, PR rewrite `2a2a7ae`, saved implementation `5bda04e`.
 The test branch has no production-code changes relative to the PR rewrite.

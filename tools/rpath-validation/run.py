@@ -28,9 +28,10 @@ sys.path.insert(0, str(ROOT))
 from tests.rpath_inspection import inspect_binaries, normalize_rpath  # noqa: E402
 
 
-def check_paths(binaries, install_plan, forbidden_prefixes):
+def check_paths(binaries, install_plan, forbidden_prefixes, toolchain_paths=()):
     """Return all header problems without stopping the installed-wheel test."""
     failures = []
+    toolchain_paths = set(map(normalize_rpath, toolchain_paths))
     for name, info in binaries.items():
         targets = [target for filename, target in install_plan.get('targets', {}).items()
                    if pathlib.Path(filename).name == pathlib.Path(name).name]
@@ -40,7 +41,7 @@ def check_paths(binaries, install_plan, forbidden_prefixes):
         for path, count in Counter(info['paths']).items():
             if not path or not path.strip('X'):
                 failures.append(f'{name}: empty or padding RPATH {path!r}')
-            if normalize_rpath(path) in build_paths - install_paths:
+            if normalize_rpath(path) in build_paths - install_paths - toolchain_paths:
                 failures.append(f'{name}: retained build-only RPATH {path!r}')
             if count > 1:
                 failures.append(f'{name}: duplicate {path!r} ({count} copies)')
@@ -114,6 +115,15 @@ def main():
             report['pkg_config'] = result.stdout
             env['PKG_CONFIG_PATH'] = str(pc)
         if args.project == 'gridfire':
+            # The pinned liblogging subproject omits its pthread dependency.
+            if sys.platform.startswith('linux'):
+                env['CXXFLAGS'] = env.get('CXXFLAGS', '') + ' -pthread'
+                env['LDFLAGS'] = env.get('LDFLAGS', '') + ' -pthread'
+            # Clang's implicit search paths can omit Conda's Boost library directory.
+            prefix = env.get('CONDA_PREFIX')
+            if prefix:
+                env.setdefault('BOOST_INCLUDEDIR', str(pathlib.Path(prefix) / 'include'))
+                env.setdefault('BOOST_LIBRARYDIR', str(pathlib.Path(prefix) / 'lib'))
             # This revision has a wrap redirect into libplugin; populate that
             # directory before Meson attempts to resolve the redirect.
             plugin = source / 'subprojects/libplugin'
@@ -125,6 +135,14 @@ def main():
             args.lock.write_text('\n'.join(line for line in report['dependencies'].splitlines()
                                          if not line.lower().startswith('meson-python')) + '\n')
         constraints = ['-c', str(args.lock.resolve())] if args.lock else []
+        # Measure compiler paths independently, as in the small-package suite.
+        control = output / 'toolchain-control'
+        shutil.copytree(ROOT / 'tests/packages/rpath-no-dependencies', control)
+        run([python, '-c', 'import mesonpy; mesonpy.Project(".", "build").build()'], cwd=control)
+        control_binaries = inspect_binaries(control / 'build')
+        report['toolchain_paths'] = next(info['paths'] for name, info in control_binaries.items()
+                                         if pathlib.Path(name).name.startswith('_probe.'))
+        shutil.rmtree(control)
         # Build a raw wheel, then hide its complete source/build checkout.
         build = source / 'build-rpath'
         command = [python, '-m', 'build', '--wheel', '--no-isolation', '--skip-dependency-check',
@@ -147,7 +165,7 @@ def main():
                 archive.extractall(unpacked)
             binaries = inspect_binaries(unpacked)
             forbidden = [source, build_environment] if label == 'repaired' else [source]
-            failures = check_paths(binaries, report['install_plan'], forbidden)
+            failures = check_paths(binaries, report['install_plan'], forbidden, report['toolchain_paths'])
             environment = output / (label + '-env')
             venv.EnvBuilder(with_pip=True).create(environment)
             target_python = environment / 'bin/python'

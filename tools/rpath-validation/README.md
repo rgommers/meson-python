@@ -19,6 +19,9 @@ independently of the backend under test.
 its wheel. Its `check_paths()` function collects header problems separately from
 the build/install flow, so header failures do not prevent the runtime check.
 It imports the shared inspector directly and does not need to import pytest.
+The dependency-free control measures compiler RPATHs before each downstream
+build, so the checker preserves those paths while still rejecting project build
+paths, duplicates, padding, and unusable macOS `$ORIGIN` entries.
 
 ## Start with the small packages
 
@@ -158,3 +161,10 @@ branch (`git push origin rpath-fixes-astra`). Its commit is outside the suite's
 history, so publishing the suite alone does not publish the saved implementation.
 Both workflows pin complete backend commit IDs. See [RESULTS.md](RESULTS.md) for
 the first run's setup failures and partial downstream results.
+
+The [second CI analysis](CI-RESULTS.md) contains the complete package matrix,
+confirmed downstream loader failures, and GridFire environment corrections.
+
+GridFire uses Conda's zlib development files and explicit Boost directories. Its
+Linux builds also receive `-pthread` because the pinned liblogging subproject
+omits that dependency. These setup corrections apply equally to every backend.
