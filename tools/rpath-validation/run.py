@@ -11,14 +11,16 @@ import os
 import pathlib
 import shlex
 import shutil
-import subprocess
+import signal
 import sys
-import venv
+import time
 import zipfile
 
 from collections import Counter
 
 import tomllib
+
+from commands import stream_command
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -59,7 +61,19 @@ def main():
     parser.add_argument('--output', required=True, type=pathlib.Path)
     parser.add_argument('--repair', action='store_true')
     parser.add_argument('--lock', type=pathlib.Path, help='Create once, then reuse build/runtime dependency constraints')
+    parser.add_argument('--timeout', type=int, default=1500, help='Total backend budget in seconds (default: 1500)')
+    parser.add_argument('--command-timeout', type=int, default=300, help='Ordinary command limit in seconds (default: 300)')
+    parser.add_argument('--build-timeout', type=int, default=1200, help='Wheel build limit in seconds (default: 1200)')
+    parser.add_argument('--jobs', type=int, default=2, help='Parallel compilation jobs (default: 2)')
     args = parser.parse_args()
+    if min(args.timeout, args.command_timeout, args.build_timeout, args.jobs) <= 0:
+        parser.error('timeouts and jobs must be positive')
+    deadline = time.monotonic() + args.timeout
+
+    def cancelled(signum, frame):
+        raise KeyboardInterrupt('Runner cancelled by SIGTERM')
+
+    signal.signal(signal.SIGTERM, cancelled)
     config = json.loads((pathlib.Path(__file__).parent / 'projects.json').read_text())[args.project]
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
@@ -68,18 +82,48 @@ def main():
     report = {'project': args.project, 'configuration': config, 'commands': [], 'errors': []}
     env = os.environ.copy()
     env.pop('PYTHONPATH', None)
+    env['PYTHONUNBUFFERED'] = '1'
+    env['GIT_TERMINAL_PROMPT'] = '0'
+    logs = output / 'logs'
+    logs.mkdir()
 
-    def run(command, cwd=output, check=True):
+    def save_report():
+        for name, data in [('commands.json', report['commands']), ('report.json', report)]:
+            path = output / name
+            temporary = path.with_suffix('.tmp')
+            temporary.write_text(json.dumps(data, indent=2) + '\n')
+            temporary.replace(path)
+
+    def run(command, cwd=output, check=True, timeout=None):
         command = list(map(str, command))
-        result = subprocess.run(command, cwd=cwd, env=env, capture_output=True, text=True)
-        report['commands'].append({'command': command, 'cwd': str(cwd),
-                                   'returncode': result.returncode, 'stdout': result.stdout, 'stderr': result.stderr})
-        (output / 'commands.json').write_text(json.dumps(report['commands'], indent=2) + '\n')
-        print(f'[{result.returncode}] {shlex.join(command)}', flush=True)
-        if result.returncode:
-            if check:
-                raise RuntimeError(result.stdout + '\n' + result.stderr)
-            print(result.stdout + '\n' + result.stderr, file=sys.stderr)
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise RuntimeError(f'Backend exceeded its {args.timeout}s budget')
+        limit = min(timeout or args.command_timeout, remaining)
+        log_prefix = logs / f'{len(report["commands"]):03d}'
+        record = {'command': command, 'cwd': str(cwd), 'state': 'running', 'timeout_seconds': limit,
+                  'stdout_log': str(log_prefix.with_suffix('.stdout.log').relative_to(output)),
+                  'stderr_log': str(log_prefix.with_suffix('.stderr.log').relative_to(output))}
+        report['commands'].append(record)
+        save_report()
+        print(f'>>> {shlex.join(command)} (limit {limit:.0f}s; cwd {cwd})', flush=True)
+        started = time.monotonic()
+        try:
+            result, timed_out = stream_command(command, cwd, env, log_prefix, limit)
+            record.update(returncode=result.returncode, stdout=result.stdout, stderr=result.stderr,
+                          state='timed_out' if timed_out else 'finished')
+        except BaseException as error:
+            record['state'] = 'interrupted' if isinstance(error, KeyboardInterrupt) else 'failed'
+            raise
+        finally:
+            record['elapsed_seconds'] = time.monotonic() - started
+            save_report()
+        status = 'timeout' if timed_out else result.returncode
+        print(f'[{status}] {shlex.join(command)}', flush=True)
+        if timed_out:
+            raise RuntimeError(f'Command exceeded {limit:.0f}s: {shlex.join(command)}')
+        if check and result.returncode:
+            raise RuntimeError(f'Command failed (exit {result.returncode}): {shlex.join(command)}')
         return result
 
     try:
@@ -94,7 +138,7 @@ def main():
         report['compiler'] = run([*shlex.split(env.get('CC', 'cc')), '--version']).stdout
         # Resolve dependencies once, then reuse their constraints across backends.
         build_environment = output / 'build-env'
-        venv.EnvBuilder(with_pip=True).create(build_environment)
+        run([sys.executable, '-m', 'venv', build_environment])
         python = build_environment / 'bin/python'
         requirements = tomllib.loads((source / 'pyproject.toml').read_text())['build-system']['requires']
         # Deliberately substitute the backend checkout. Keep all other upstream
@@ -146,9 +190,9 @@ def main():
         # Build a raw wheel, then hide its complete source/build checkout.
         build = source / 'build-rpath'
         command = [python, '-m', 'build', '--wheel', '--no-isolation', '--skip-dependency-check',
-                   '-Cbuild-dir=' + str(build), '-Ccompile-args=-j2']
+                   '-Cbuild-dir=' + str(build), f'-Ccompile-args=-j{args.jobs}']
         command.extend('-Csetup-args=' + option for option in config['setup'])
-        run(command, cwd=source)
+        run(command, cwd=source, timeout=args.build_timeout)
         report['source_diff'] = run(['git', 'diff', 'HEAD'], cwd=source).stdout
         report['install_plan'] = json.loads((build / 'meson-info/intro-install_plan.json').read_text())
         wheels = output / 'wheels'
@@ -167,7 +211,7 @@ def main():
             forbidden = [source, build_environment] if label == 'repaired' else [source]
             failures = check_paths(binaries, report['install_plan'], forbidden, report['toolchain_paths'])
             environment = output / (label + '-env')
-            venv.EnvBuilder(with_pip=True).create(environment)
+            run([sys.executable, '-m', 'venv', environment])
             target_python = environment / 'bin/python'
             run([target_python, '-m', 'pip', 'install', *constraints, 'pytest', 'hypothesis', *config['runtime'], wheel])
             smoke_env_keys = ['PYTHONPATH', 'LD_LIBRARY_PATH', 'DYLD_LIBRARY_PATH', 'DYLD_FALLBACK_LIBRARY_PATH']
@@ -192,10 +236,10 @@ def main():
                 run([build_environment / 'bin/auditwheel', 'repair', '-w', repaired, raw_wheel])
             build_environment.rename(output / 'build-env-hidden')
             audit(next(repaired.glob('*.whl')), 'repaired')
-    except Exception as error:
+    except (Exception, KeyboardInterrupt) as error:
         report['errors'].append(str(error))
     finally:
-        (output / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
+        save_report()
     for error in report['errors']:
         print(error, file=sys.stderr)
     return bool(report['errors'])

@@ -10,7 +10,7 @@
     "repository": "https://github.com/tboudreaux/GridFire.git",
     "revision": "56f93420527912cf94da1d52bd0d5c32bd0311a9",
     "runtime": [],
-    "setup": ["-Dbuild-tests=false", "-Ddefault_library=shared"],
+    "setup": ["-Dbuild-tests=false", "-Ddefault_library=shared", "-Doptimization=0"],
     "smoke": "import gridfire\nassert gridfire.__file__\nprint('GridFire native package loaded:', gridfire.__file__)\n"
   },
   "vapoursynth": {

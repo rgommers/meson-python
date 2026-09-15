@@ -168,3 +168,55 @@ confirmed downstream loader failures, and GridFire environment corrections.
 GridFire uses Conda's zlib development files and explicit Boost directories. Its
 Linux builds also receive `-pthread` because the pinned liblogging subproject
 omits that dependency. These setup corrections apply equally to every backend.
+
+## Long builds and interrupted jobs
+
+The runner prints each command **before** starting it, streams stdout and stderr
+live, and emits a heartbeat every 30 seconds. Full streams are also flushed to
+`logs/NNN.stdout.log` and `logs/NNN.stderr.log`. Stdout remains separate from
+stderr because pkg-config output and dependency locks must not contain diagnostics.
+
+Each backend has a 25-minute budget (`--timeout 1500`). Ordinary commands,
+including downloads and environment creation, have a five-minute limit
+(`--command-timeout 300`); the wheel build has a 20-minute limit
+(`--build-timeout 1200`). Every command is capped by the remaining backend budget.
+On timeout, the runner sends SIGTERM to the whole process group, then SIGKILL
+if needed, so Ninja's compilers cannot keep running or hold output pipes open.
+A timeout is a failed comparison, and the workflow continues with the next
+backend. The existing 90-minute job limit remains a final backstop.
+
+`report.json` and `commands.json` are checkpointed before and after commands with
+atomic replacement. A running command has a `running` state and log paths; a
+completed timeout has `timed_out`, elapsed time, exit status, and captured output.
+Cancellation records `interrupted` and retains the partial log files. CI uploads
+these files and Meson's build logs even when comparison fails. On a hard runner
+shutdown, the last checkpoint and any logs already written remain available for
+artifact upload if the runner can still execute that step.
+
+GridFire's diagnostic configuration now uses `-Doptimization=0`. The pinned
+project propagates its core sources into many targets, making repeated optimized
+compilation expensive. Disabling optimization reduces that work without patching
+upstream source or changing its RPATH options, and applies equally to all three
+backends. This comparison does not cover optimization-specific linker behavior.
+Several dependencies unconditionally add their own tests; the top-level
+`build-tests=false` cannot disable those without patching upstream.
+Compilation parallelism remains two jobs by default; override with `--jobs` when
+appropriate for the runner's memory and CPU limits.
+
+The subprocess behavior has separate process-level tests (not RPATH unit tests):
+
+```sh
+python -m pytest tools/rpath-validation/test_commands.py -q
+```
+
+CI runs these on Linux and macOS before the downstream comparison. They check
+live output, separate streams, exit statuses, heartbeats, a stubborn descendant
+after its parent exits, backend budget expiry, and SIGTERM cancellation with
+partial reports preserved.
+
+Local validation: the five process tests passed; a real GridFire build with an
+intentionally shortened 120-second build limit terminated at that deadline,
+retained partial compiler output and JSON, and left no processes in its build
+tree. A complete DWave/Astra run passed all 26 native-file checks and its installed
+smoke test. This verifies timeout handling, not that GridFire's full build fits
+the default 20-minute limit; that remains to be measured in CI.
