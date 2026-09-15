@@ -1,11 +1,78 @@
 # RPATH CI results
 
-## Local validation: additional ELF tag combinations
+## Latest package CI: dual tags and mixed dependency chains
 
-These four packages were added after the CI runs below. The following results
+Source: [package run 34981524681](https://github.com/rgommers/meson-python/actions/runs/34981524681),
+using suite commit `e707a1436436cc68377ee83846db899c86e19db3` and the same main,
+PR rewrite, and Astra backend commits as below. All 21 jobs ran the tests and
+uploaded artifacts. All are red because each backend still has known failures;
+there were no setup failures or new-fixture preparation errors.
+
+Meson 1.9 and 1.12 give identical per-package outcomes on each system-compiler
+platform. Every pre-existing package's result matches the earlier matrix
+(comparing 1.12 with the previous 1.11.1 run). macOS arm64 and Intel agree;
+the four new ELF packages correctly skip there.
+
+### New packages on Linux
+
+| Package | System compiler: main | System compiler: PR | System compiler: Astra | Conda compiler: main | Conda compiler: PR | Conda compiler: Astra |
+| --- | --- | --- | --- | --- | --- | --- |
+| `rpath-elf-both-tags` | Fail: build path retained | Pass | Pass | Fail: build path retained | Pass | Pass |
+| `rpath-elf-both-tags-empty-runpath` | Pass | Pass | Pass | Pass | Pass | Pass |
+| `rpath-elf-mixed-rpath-runpath` | Fail: build path retained | Fail: executable tag converted | Pass | Fail: build path retained | Fail: executable tag converted | Pass |
+| `rpath-elf-mixed-runpath-rpath` | Fail: build path retained | Pass | Pass | Fail: build path retained | Fail: middle-library tag converted | Pass |
+
+Both dual-tag fixtures now have successful input, repeat-build, header, and
+smoke checks with PR and Astra on x86_64 system compilers and aarch64 Conda
+compilers. The empty-RUNPATH smoke intentionally requires the missing-library
+failure: no backend accidentally activates the ignored RPATH in this case.
+The mixed-chain PR failures are RPATH-to-RUNPATH conversions; their installed
+smoke tests still succeed. These results confirm the tag-preservation defect,
+not a new runtime failure in these particular chains.
+
+### Complete suite totals
+
+Cells are **passed / failed / skipped**. Each system-compiler row applies to
+both Meson selections; the Conda jobs use their environment-resolved Meson.
+
+| Environment | main | PR rewrite | Astra |
+| --- | --- | --- | --- |
+| Linux x86_64, system compiler | 10/13/3 | 17/6/3 | 22/1/3 |
+| Linux aarch64, Conda compiler | 9/14/3 | 6/17/3 | 22/1/3 |
+| macOS arm64 and Intel | 8/11/7 | 12/7/7 | 16/3/7 |
+
+Astra's remaining Linux failure is still `sharedlib-in-package-orig`. Its macOS
+failures remain that original fixture, `rpath-legacy-origin-flat`, and
+`rpath-macos-duplicates-retain`. The reduced Meson matrix retains all observed
+current failures.
+
+### Fixture correction after this run
+
+The PR's system-compiler pass for `rpath-elf-mixed-runpath-rpath` exposed a
+coverage weakness: the middle library's build and install paths were both
+`$ORIGIN/../leaf`. Without an injected compiler path, removing and re-adding
+that single entry leaves the path list unchanged, so the PR skips patchelf and
+preserves RPATH. With Conda, the PR moves that entry after the compiler path;
+this changes the list, invokes patchelf, and converts the tag.
+
+Both mixed-chain fixtures now install the leaf under `probe/installed-leaf/`
+while retaining `leaf/` in the build tree. The middle library must therefore
+change its path on either toolchain. The required tag types and runtime
+expectations are unchanged. This correction is newer than the CI run above;
+the table deliberately records the actual CI pass rather than a predicted
+failure. The per-package READMEs and summary describe the corrected layout.
+
+Locally, both corrected fixtures pass with Astra on Meson 1.9.2 and 1.12.0.
+Both detect the PR's tag conversions on Meson 1.11.2, including a run with
+compiler/linker environment flags cleared. These are Linux aarch64 checks;
+system-compiler CI confirmation of the correction is still pending.
+
+## Earlier local validation: additional ELF tag combinations
+
+These four packages were added after the older CI runs below. The following results
 are local Linux aarch64 checks with Python 3.12, the Conda GCC toolchain, and
 Meson 1.11.2, using the same three backend implementations. They are not CI
-results, and the new packages have not yet run on x86_64.
+results; x86_64 coverage was subsequently confirmed by the latest CI above.
 
 | Package | main | PR rewrite | Astra |
 | --- | --- | --- | --- |
@@ -33,7 +100,7 @@ System-compiler validation could not run locally because `/usr/bin/cc` is not
 installed; the existing CI matrix will cover that toolchain. The matrix gains
 four packages within existing Linux jobs, with no additional jobs.
 
-## Latest run: bounded GridFire builds
+## Previous run: bounded GridFire builds
 
 Sources: [package run 34963573037](https://github.com/rgommers/meson-python/actions/runs/34963573037)
 and [downstream run 34963572962](https://github.com/rgommers/meson-python/actions/runs/34963572962),

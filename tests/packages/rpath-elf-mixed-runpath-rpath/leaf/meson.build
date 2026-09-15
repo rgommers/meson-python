@@ -2,4 +2,4 @@
 #
 # SPDX-License-Identifier: MIT
 
-leaf = shared_library('leaf', 'leaf.c', install: true, install_dir: py.get_install_dir() / 'probe/leaf')
+leaf = shared_library('leaf', 'leaf.c', install: true, install_dir: py.get_install_dir() / 'probe/installed-leaf')

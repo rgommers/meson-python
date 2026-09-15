@@ -128,8 +128,8 @@ require Linux and Meson 1.9 or newer; macOS skips them.
 | [rpath-elf-runpath-direct](tests/packages/rpath-elf-runpath-direct/README.md) | `DT_RUNPATH` containing `$ORIGIN/lib` | `probe/lib/libmiddle` needs `$ORIGIN` for its own leaf dependency; `libleaf` has no project paths. Preserve the middle library's input tag type. Execution must succeed with direct-dependency search semantics. |
 | [rpath-elf-both-tags](tests/packages/rpath-elf-both-tags/README.md) | DT_RUNPATH: `$ORIGIN/runpath-choice`; optional inactive DT_RPATH: `$ORIGIN/rpath-choice` | Same-SONAME libraries in those two directories return 42 and 7 respectively. RUNPATH must select 42; remove its build-only `$ORIGIN/good` entry without merging in RPATH. |
 | [rpath-elf-both-tags-empty-runpath](tests/packages/rpath-elf-both-tags-empty-runpath/README.md) | DT_RUNPATH exists with an empty string; optional inactive DT_RPATH: `$ORIGIN/rpath-choice` | The executable must fail specifically because `librpath_test_choice.so` cannot be found. The smoke test requires this failure: deleting RUNPATH and activating RPATH would incorrectly find the library. |
-| [rpath-elf-mixed-rpath-runpath](tests/packages/rpath-elf-mixed-rpath-runpath/README.md) | DT_RPATH: `$ORIGIN/middle` | Middle has DT_RUNPATH: `$ORIGIN/../leaf`. Leaf has no project paths. Both tag types must survive and execution must return success. |
-| [rpath-elf-mixed-runpath-rpath](tests/packages/rpath-elf-mixed-runpath-rpath/README.md) | DT_RUNPATH: `$ORIGIN/middle` | Middle has DT_RPATH: `$ORIGIN/../leaf`. Leaf has no project paths. Both tag types must survive and execution must return success. |
+| [rpath-elf-mixed-rpath-runpath](tests/packages/rpath-elf-mixed-rpath-runpath/README.md) | DT_RPATH: `$ORIGIN/middle` | Middle has DT_RUNPATH: `$ORIGIN/../installed-leaf`. Leaf has no project paths. Both tag types must survive and execution must return success. |
+| [rpath-elf-mixed-runpath-rpath](tests/packages/rpath-elf-mixed-runpath-rpath/README.md) | DT_RUNPATH: `$ORIGIN/middle` | Middle has DT_RPATH: `$ORIGIN/../installed-leaf`. Leaf has no project paths. Both tag types must survive and execution must return success. |
 
 The two dual-tag packages prepare little-endian ELF64 binaries (the x86_64 and
 aarch64 CI targets) with both tags and assert their inputs before wheel
@@ -142,6 +142,8 @@ execution: its **smoke assertion** must pass by observing the expected loader
 failure. All other native smoke commands continue to require success.
 
 The mixed-chain packages explicitly select and assert each input tag type.
+The leaf moves from `leaf/` to `probe/installed-leaf/`, forcing the middle
+library's path to change even with a system compiler.
 The executable and middle library search different directories, so the
 executable's path cannot accidentally satisfy the middle library's leaf lookup.
 

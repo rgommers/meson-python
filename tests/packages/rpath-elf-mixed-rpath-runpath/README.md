@@ -10,6 +10,8 @@ asserts the input tag types before wheel generation. Neither the system linker
 nor the Conda toolchain is allowed to determine these types implicitly.
 
 The wheel separates the middle and leaf libraries into different directories.
+The leaf moves from build directory `leaf/` to `probe/installed-leaf/`, forcing
+a path edit in the middle library even without compiler-injected paths.
 The executable's search path cannot find the leaf; the middle library must
 supply its own path. This exercises mixed tags across a dependency chain,
 complementing the single-tag transitive and direct-dependency packages.
@@ -19,8 +21,8 @@ complementing the single-tag transitive and direct-dependency packages.
 | Installed binary | Linux expectations | macOS LC_RPATH |
 | --- | --- | --- |
 | `probe/probe-exe` | DT_RPATH: `$ORIGIN/middle` | Not applicable |
-| `probe/middle/libmiddle.so` | DT_RUNPATH: `$ORIGIN/../leaf` | Not applicable |
-| `probe/leaf/libleaf.so` | No project paths | Not applicable |
+| `probe/middle/libmiddle.so` | DT_RUNPATH: `$ORIGIN/../installed-leaf` | Not applicable |
+| `probe/installed-leaf/libleaf.so` | No project paths | Not applicable |
 
 Each project path occurs exactly once. Build paths and padding must disappear;
 compiler-injected paths measured by the dependency-free control remain allowed

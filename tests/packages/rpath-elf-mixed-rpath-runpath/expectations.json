@@ -23,12 +23,12 @@
     {
       "glob": "probe/middle/*middle*",
       "paths": [
-        "{origin}/../leaf"
+        "{origin}/../installed-leaf"
       ],
       "tag": "RUNPATH"
     },
     {
-      "glob": "probe/leaf/*leaf*",
+      "glob": "probe/installed-leaf/*leaf*",
       "paths": []
     }
   ]
