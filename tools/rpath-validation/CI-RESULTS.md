@@ -1,4 +1,85 @@
-# RPATH CI results: second run, 15 September 2026
+# RPATH CI results
+
+## Latest run: bounded GridFire builds
+
+Sources: [package run 34963573037](https://github.com/rgommers/meson-python/actions/runs/34963573037)
+and [downstream run 34963572962](https://github.com/rgommers/meson-python/actions/runs/34963572962),
+both using suite commit `f95b65b5196d4c20c36d8ab9f529c07d55a0a12c`.
+The compared backends remain main `cbe2ac4`, PR rewrite `2a2a7ae`, and
+Astra `5bda04e`.
+
+Every per-package outcome in all 48 jobs matches the previous run below
+(8 green, 40 red). The existing package matrix and defect analysis therefore
+still apply. Downstream job totals are also unchanged (3 green, 5 red), but
+GridFire now provides useful macOS wheel evidence.
+
+### GridFire: builds, headers, and imports
+
+| Platform / result | main | PR rewrite | Astra |
+| --- | --- | --- | --- |
+| Linux wheel build | Timeout, 20 min | Timeout, 20 min | Timeout, 20 min |
+| Linux last reported build progress | 419/615 | 415/615 | 406/615 |
+| macOS wheel build | Completed, 16m 31s | Completed, 14m 25s | Completed, 17m 25s |
+| macOS binaries with duplicate LC_RPATH findings | 17 | 0 | 0 |
+| macOS retained-build-path findings requiring review | 15 | 15 | 15 |
+| macOS installed-wheel smoke | Import fails | Import fails | Import fails |
+
+The Linux job no longer silently consumes the whole 90-minute job limit.
+Each backend reaches its own 1,200-second build deadline, terminates, and lets
+the next comparison run. All three backends were attempted and the logs were
+uploaded. Live output and the command-runner tests worked on both platforms.
+There is still no Linux GridFire wheel or runtime result.
+
+On macOS, main's `gridfire` extension contains nine copies of
+`@loader_path/.gridfire.mesonpy.libs`; its `fourdst` extension contains five.
+The relocated `libgridfire.dylib` contains eight copies of `@loader_path/.`.
+The rewrite and Astra eliminate all 17 duplicate findings. This is real-world
+evidence for the distinct-build-paths-to-one-wheel-path fix, consistent with
+`rpath-relocated-multiple`. It does not resolve the separate duplicate cases
+that still fail in the package suite.
+
+All three installed-wheel imports fail with
+`ModuleNotFoundError: No module named 'fourdst.constants'`, followed by
+`ImportError: initialization failed`. This is a Python module-resolution
+failure, not the missing-dylib error seen for VapourSynth and DWave. The likely
+cause is an upstream packaging collision: the CI installation logs include both
+`fourdst.cpython-312-darwin.so` and `fourdst/__init__.py`. In the pinned source,
+the latter is empty, while the extension defines the `constants` submodule
+that GridFire imports. A local Python import-resolution check confirms that a
+package with `__init__.py` takes precedence over a same-name extension in the
+same directory. The installed macOS wheel has not been independently rerun to
+verify that diagnosis. Successful wheel builds must not be reported as
+successful runtime tests.
+
+The 15 remaining header findings on each backend all concern
+`@loader_path/.` in relocated SUNDIALS libraries. These may be checker false
+positives: that path points to sibling libraries in `.gridfire.mesonpy.libs`,
+but also matches a path recorded in the original build metadata. The checker
+currently compares path strings without distinguishing these two uses.
+These findings require dependency-level inspection before being attributed to
+a backend defect; the expectations and checker have not been weakened.
+
+### Other downstream projects
+
+The runtime conclusions are unchanged: NumPy linked against `scipy-openblas64`
+passes with all three backends on both platforms, as does VapourSynth on Linux.
+DWave passes on Linux with the rewrite and Astra; main still has 45 header
+findings despite a successful smoke test.
+
+On macOS, VapourSynth and DWave still import successfully with main and fail
+with both the rewrite and Astra. Their literal `$ORIGIN` paths and missing
+`@rpath` libraries remain the same compatibility regressions documented below.
+The compiler-control correction removes the four compiler-path findings from
+main's VapourSynth results (six retained-path findings become two), and the
+two compiler-path findings from each alternative backend. It does not change
+their two literal `$ORIGIN` findings or failing imports. DWave's macOS counts
+remain 24 retained-build-path findings on main and 25 literal `$ORIGIN`
+findings on each alternative backend.
+
+## Previous run: 15 September 2026
+
+The remainder records the earlier run, including the GridFire setup failures
+that the latest run has progressed beyond.
 
 Sources: [package run 34941012358](https://github.com/rgommers/meson-python/actions/runs/34941012358)
 and [downstream run 34941012377](https://github.com/rgommers/meson-python/actions/runs/34941012377),
