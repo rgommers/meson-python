@@ -448,10 +448,38 @@ class _WheelBuilder():
             return 'abi3.abi3t' if abi3t else 'abi3'
         return None
 
+    @cached_property
+    def _in_package_native_files(self) -> List[_Entry]:
+        return [entry for entry in self._manifest.get('platlib', [])
+                if os.path.isfile(entry.src) and _is_native(entry.src)]
+
+    def _in_package_rpaths(self, origin: Path, destination: pathlib.Path, paths: List[str]) -> List[str]:
+        # Meson's build_rpaths also includes paths to libraries whose relative
+        # layout is unchanged in the wheel. Older projects rely on these paths
+        # without listing all of them in install_rpath. Retain a path only when
+        # it still leads to another installed native file in the same layout.
+        directories = {(os.path.abspath(os.path.dirname(entry.src)), os.fspath(entry.dst.parent))
+                       for entry in self._in_package_native_files
+                       if os.path.abspath(entry.src) != os.path.abspath(origin)}
+        retained = []
+        for path in paths:
+            anchor, _, suffix = path.partition('/')
+            if anchor not in ('$ORIGIN', '${ORIGIN}', '@loader_path'):
+                continue
+            relative = os.path.normpath(suffix or '.')
+            source_dir = os.path.abspath(os.path.join(os.path.dirname(origin), relative))
+            installed_dir = os.path.normpath(destination.parent / relative)
+            if (source_dir, installed_dir) in directories:
+                retained.append(anchor if relative == '.' else anchor + '/' + relative)
+        return retained
+
     def _install_path(self, wheel_file: mesonpy._wheelfile.WheelFile,
                       origin: Path, destination: pathlib.Path,
                       install_rpath: List[str], build_rpath: List[str]) -> None:
         """Add a file to the wheel."""
+
+        if build_rpath and sys.platform not in ('win32', 'cygwin'):
+            install_rpath = [*install_rpath, *self._in_package_rpaths(origin, destination, build_rpath)]
 
         if self._has_internal_libs and _is_native(origin):
             libspath = os.path.relpath(self._libs_dir, destination.parent)
