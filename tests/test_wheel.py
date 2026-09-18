@@ -316,7 +316,7 @@ def test_rpath_mixed_layout(package_rpath_mixed_layout, tmp_path, venv, monkeypa
     assert venv.python('-c', 'from rpath_mixed import _mixed; print(_mixed.value())').strip() == '114'
 
 
-@pytest.mark.skipif(sys.platform != 'darwin', reason='characterizes literal $ORIGIN on macOS')
+@pytest.mark.skipif(sys.platform != 'darwin', reason='requires macOS loader paths')
 def test_macos_rpath_origin_compatibility(package_sharedlib_in_package, tmp_path, monkeypatch):
     source = tmp_path / 'source'
     shutil.copytree(package_sharedlib_in_package, source, ignore=shutil.ignore_patterns('build', '.mesonpy-*'))
@@ -342,20 +342,15 @@ def test_macos_rpath_origin_compatibility(package_sharedlib_in_package, tmp_path
     with wheel.wheelfile.WheelFile(tmp_path / filename) as artifact:
         artifact.extractall(unpacked)
     entries = mesonpy._rpath.get_rpath(unpacked / 'mypkg' / f'_example{EXT_SUFFIX}')
-    assert ('$ORIGIN' in entries) == (MESON_VERSION >= (1, 6))
+    assert '$ORIGIN' not in entries
+    assert any(entry in ('@loader_path', '@loader_path/') for entry in entries)
     shutil.rmtree(source)
     monkeypatch.chdir(unpacked)
     for key in ['LD_LIBRARY_PATH', 'DYLD_LIBRARY_PATH', 'DYLD_FALLBACK_LIBRARY_PATH']:
         monkeypatch.delenv(key, raising=False)
     result = subprocess.run([sys.executable, '-c', 'import mypkg; assert mypkg.prodsum(2, 3, 4) == 11'],
                             capture_output=True, text=True)
-    if BUILD_RPATH_SUPPORT:
-        assert result.returncode != 0
-        assert 'Library not loaded' in result.stderr
-        assert not any(entry.startswith('@loader_path') for entry in entries)
-    else:
-        assert result.returncode == 0, result.stderr
-        assert any(entry.startswith('@loader_path') for entry in entries)
+    assert result.returncode == 0, result.stderr
 
 
 @pytest.mark.skipif(sys.platform in {'win32', 'cygwin'}, reason='requires executable bit support')

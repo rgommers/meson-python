@@ -73,8 +73,15 @@ def test_rpath_merge(cls):
     assert cls._rpath([], [], [], None) == []
 
 
-def test_macos_literal_origin():
-    assert _MacOS._rpath(['@loader_path/'], ['$ORIGIN'], ['@loader_path/'], None) == ['$ORIGIN']
+@pytest.mark.parametrize('anchor', ['$ORIGIN', '${ORIGIN}'])
+def test_macos_literal_origin(anchor):
+    assert _MacOS._rpath(['@loader_path/'], [anchor], ['@loader_path/'], None) == ['@loader_path']
+    old = [anchor + '/build', anchor + '/user', '/external/$ORIGIN', '$ORIGIN_suffix']
+    add = [anchor + '/private', '@loader_path/private']
+    expected = ['@loader_path/private', '@loader_path/user', '/external/$ORIGIN',
+                '$ORIGIN_suffix', '@loader_path/../libs']
+    assert _MacOS._rpath(old, add, ['@loader_path/build'], '../libs') == expected
+    assert _MacOS._rpath(expected, add, [anchor + '/build'], '../libs') == expected
 
 
 def test_macos_parse_paths(mocker):

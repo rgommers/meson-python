@@ -87,6 +87,23 @@ class _MacOS(RPATH):
 
     origin = '@loader_path'
 
+    @classmethod
+    def _rpath(cls, old_rpath: List[str], add: List[str], remove: List[str],
+               libs_relative_path: Optional[str]) -> List[str]:
+        # Historical projects use $ORIGIN in install_rpath on every platform.
+        # Meson translates its generated build paths on macOS, but installation
+        # metadata can still contain the ELF spelling. Compare and emit paths
+        # using the native anchor, including any subdirectory suffix.
+        def native(path: str) -> str:
+            anchor, separator, suffix = path.partition('/')
+            if anchor in ('$ORIGIN', '${ORIGIN}'):
+                return cls.origin + separator + suffix
+            return path
+
+        return super()._rpath(
+            [native(path) for path in old_rpath], [native(path) for path in add],
+            [native(path) for path in remove], libs_relative_path)
+
     @staticmethod
     def _get_rpaths(filepath: Path, all_archs: bool = False) -> Dict[str, List[str]]:
         args = ['-arch', 'all'] if all_archs else []
