@@ -7,6 +7,7 @@ import re
 import shutil
 import stat
 import sys
+import sysconfig
 import textwrap
 
 import packaging.tags
@@ -43,6 +44,16 @@ def wheel_contents(artifact):
         entry for entry in artifact.namelist()
         if not entry.endswith('/')
     }
+
+
+def rpath_from_sysconfig_ldflags():
+    # Account for extra RPATH entries added by compilation flags in
+    # the Python configuration.  This is required for conda/pixi.
+    r = set()
+    for arg in sysconfig.get_config_var('LDFLAGS').split(' '):
+        if arg.startswith('-Wl,-rpath,'):
+            r.add(arg.removeprefix('-Wl,-rpath,'))
+    return r
 
 
 def test_scipy_like(wheel_scipy_like):
@@ -187,19 +198,20 @@ def test_sharedlib_in_package_rpath(wheel_sharedlib_in_package, tmp_path):
     artifact.extractall(tmp_path)
 
     origin = '@loader_path' if sys.platform == 'darwin' else '$ORIGIN'
+    extra = rpath_from_sysconfig_ldflags()
 
     rpath = set(mesonpy._rpath.get_rpath(tmp_path / 'mypkg' / f'_example{EXT_SUFFIX}'))
     assert rpath >= {origin}
     if BUILD_RPATH_SUPPORT:
-        assert rpath == {origin}
+        assert rpath == {origin}.union(extra)
 
     rpath = set(mesonpy._rpath.get_rpath(tmp_path / 'mypkg' / f'liblib{LIB_SUFFIX}'))
     assert rpath >= {f'{origin}/sub'}
     if BUILD_RPATH_SUPPORT:
-        assert rpath == {f'{origin}/sub'}
+        assert rpath == {f'{origin}/sub'}.union(extra)
 
     rpath = set(mesonpy._rpath.get_rpath(tmp_path / 'mypkg' / 'sub' / f'libsublib{LIB_SUFFIX}'))
-    assert rpath == set()
+    assert rpath == extra
 
 
 @pytest.mark.skipif(sys.platform in {'win32', 'cygwin'}, reason='requires RPATH support')
@@ -238,6 +250,7 @@ def test_link_against_local_lib_rpath(wheel_link_against_local_lib, tmp_path):
 
     origin = '@loader_path' if sys.platform == 'darwin' else '$ORIGIN'
     expected = {f'{origin}/../.link_against_local_lib.mesonpy.libs', 'custom-rpath',}
+    expected.update(rpath_from_sysconfig_ldflags())
 
     rpath = set(mesonpy._rpath.get_rpath(tmp_path / 'example' / f'_example{EXT_SUFFIX}'))
     assert rpath >= expected
