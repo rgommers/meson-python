@@ -19,7 +19,7 @@ jobs:
         backend:
           - cbe2ac407957ac0d8b0c5365a02d21dcade12822 # main
           - 2a2a7aea39536fdb91f4bd6fb2456400a08ab6cb # PR rewrite
-          - 5bda04efab456acc04673235ec09b376078f4b1c # rpath-fixes-astra; publish before running
+          - 722f285c396d4c38dedb198a2c6a6c23b85bf591 # rpath-fixes-astra; publish before running
         # 1.9 exercises all RPATH cases; 1.12 covers the current release series.
         # Run older versions once more during the final compatibility review.
         meson: ['~=1.9.0', '~=1.12.0']
@@ -78,7 +78,7 @@ jobs:
         backend:
           - cbe2ac407957ac0d8b0c5365a02d21dcade12822 # main
           - 2a2a7aea39536fdb91f4bd6fb2456400a08ab6cb # PR rewrite
-          - 5bda04efab456acc04673235ec09b376078f4b1c # rpath-fixes-astra; publish before running
+          - 722f285c396d4c38dedb198a2c6a6c23b85bf591 # rpath-fixes-astra; publish before running
     steps:
       - uses: actions/checkout@v7
         with:

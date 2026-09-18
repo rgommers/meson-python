@@ -1,5 +1,28 @@
 # RPATH CI results
 
+## Next checkpoint: Astra compatibility fixes
+
+The workflow now compares Astra `722f285c396d4c38dedb198a2c6a6c23b85bf591` with the unchanged
+main and PR rewrite commits. This checkpoint contains two implementation fixes:
+
+- Translate historical `$ORIGIN` / `${ORIGIN}` prefixes to `@loader_path` when
+  rewriting macOS paths, including subdirectory suffixes.
+- Preserve origin-relative paths listed as build paths when the wheel manifest
+  shows that they still lead to another installed native file in the same
+  relative layout. Explicit installation paths remain first. Paths to build
+  directories without a matching installed layout are still removed.
+
+Local Linux aarch64 validation with the Conda compiler: **23 passed, 3 skipped**
+on both Meson 1.9.2 and 1.12.0. The original package now retains `$ORIGIN/sub`
+and imports successfully. The existing expectations were not relaxed. The
+backend RPATH and wheel tests report **68 passed, 7 skipped** on Meson 1.11.2;
+the skips include native macOS checks. Lint and whitespace checks pass.
+
+Native macOS validation is pending. In particular, verify the original and
+legacy-origin packages and the VapourSynth/DWave imports. Existing duplicates
+in a binary that the wheel builder never processes remain a separate, deferred
+fix; the macOS duplicate-retention package is still expected to fail.
+
 ## Latest package CI: dual tags and mixed dependency chains
 
 Source: [package run 34981524681](https://github.com/rgommers/meson-python/actions/runs/34981524681),
