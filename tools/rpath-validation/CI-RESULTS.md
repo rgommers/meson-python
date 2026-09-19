@@ -5,9 +5,10 @@
 This report describes the latest completed runs, replacing the older running
 chronology. Historical details remain available in Git history.
 
-- [Downstream run 35439731268](https://github.com/rgommers/meson-python/actions/runs/35439731268)
-- [Package run 35439731271](https://github.com/rgommers/meson-python/actions/runs/35439731271)
-- Suite commit: `ef34a77dc0e6dd248cc5b5086f93b8b4d680884e`
+- [Downstream run 35445578898](https://github.com/rgommers/meson-python/actions/runs/35445578898)
+- [Package run 35445578975](https://github.com/rgommers/meson-python/actions/runs/35445578975)
+- [Supplemental run 35445578909](https://github.com/rgommers/meson-python/actions/runs/35445578909)
+- Suite commit: `2d397780cfe5e3c1edf5e6ee2467a733f3851630`
 
 | Backend | Pinned commit |
 | --- | --- |
@@ -20,10 +21,16 @@ checks and installed-wheel runtime tests.** The sole failing downstream job is
 Linux DWave with main: it retains 23 literal linker-padding entries. All 18
 backend/project/platform combinations build and run successfully.
 
-The small-package suite still finds the defects detailed below. Its results are
-identical to [run 35434791142](https://github.com/rgommers/meson-python/actions/runs/35434791142).
+The corrected `sharedlib-in-package-orig` now passes with the PR on system
+Linux, including musl. On Conda its import succeeds but tag preservation still
+fails. On macOS the second wheel build exposes the same no-edit command bug
+as `rpath-mixed-layout`; this is no longer a missing-installation-path failure.
 Astra passes every applicable Linux case; its only remaining package failure is
 macOS duplicate retention when the wheel builder skips RPATH processing.
+
+Routine macOS jobs now use `macos-latest` (macOS 26.6.2 ARM64 in these runs).
+The supplemental jobs cover Alpine/musl x86_64 and macOS 15 Intel with Meson
+1.12, running main only for packages that fail with the PR.
 
 ## Downstream results
 
@@ -35,11 +42,11 @@ checkout and clears loader-path environment overrides.
 | Project | Platform | main | PR rewrite | Astra |
 | --- | --- | --- | --- | --- |
 | NumPy + scipy-openblas64 | Ubuntu 24.04 | Pass | Pass | Pass |
-| NumPy + scipy-openblas64 | macOS 14 ARM | Pass | Pass | Pass |
+| NumPy + scipy-openblas64 | macOS 26 ARM | Pass | Pass | Pass |
 | VapourSynth | Ubuntu 24.04 | Pass | Pass | Pass |
-| VapourSynth | macOS 14 ARM | Pass | Pass | Pass |
+| VapourSynth | macOS 26 ARM | Pass | Pass | Pass |
 | dwave-optimization | Ubuntu 24.04 | 23 padding findings; runtime passes | Pass | Pass |
-| dwave-optimization | macOS 14 ARM | Pass | Pass | Pass |
+| dwave-optimization | macOS 26 ARM | Pass | Pass | Pass |
 
 The runtime checks exercise NumPy linear algebra (including its linalg test
 suite), VapourSynth frame creation, and a DWave model with native symbols and
@@ -49,7 +56,7 @@ job uses one dependency lock across its three backend builds.
 
 ### Why Linux DWave is still red
 
-[Job 105888352697](https://github.com/rgommers/meson-python/actions/runs/35439731268/job/105888352697)
+[Job 105903815333](https://github.com/rgommers/meson-python/actions/runs/35445578898/job/105903815333)
 reports the following findings only for main (`cbe2ac4`):
 
 - `_utilities.cpython-312-x86_64-linux-gnu.so` retains `XXXXXXX`.
@@ -93,19 +100,49 @@ if it does. This run alone does not establish its original cause.
 
 ## Small-package totals
 
-All 21 jobs ran all 26 cases and uploaded their artifacts. Three Linux jobs
+All 15 routine jobs ran all 26 cases and uploaded their artifacts. Three Linux jobs
 (Astra with two system-compiler Meson selections and Astra with Conda) passed;
 the other jobs failed package expectations, not harness setup.
 
 Cells are **passed / failed / skipped**. System-compiler Meson 1.9 and 1.12
-results agree. macOS ARM and Intel agree as well. The Conda job uses its
-resolved Meson version and a compiler configuration that emits DT_RPATH.
+results agree. The supplemental Intel PR outcomes agree with ARM. The Conda
+job uses its resolved Meson version and a compiler configuration that emits DT_RPATH.
 
 | Environment | main | PR rewrite | Astra |
 | --- | --- | --- | --- |
-| Linux x86_64, system compiler | 10/13/3 | 17/6/3 | 23/0/3 |
+| Linux x86_64, system compiler | 10/13/3 | 18/5/3 | 23/0/3 |
 | Linux aarch64, Conda compiler | 9/14/3 | 6/17/3 | 23/0/3 |
-| macOS ARM and Intel | 8/11/7 | 14/5/7 | 18/1/7 |
+| macOS 26 ARM | 8/11/7 | 14/5/7 | 18/1/7 |
+
+## Supplemental platforms
+
+Both jobs passed all five supplemental-runner tests, ran all 26 package cases,
+and reran exactly the failing cases on main. No setup failure or timeout
+prevented a comparison. Cells are **passed / failed / skipped**; baseline
+counts cover only the selected failures, not the full suite.
+
+| Environment | PR full suite | main, failing cases only |
+| --- | --- | --- |
+| Alpine/musl x86_64, Meson 1.12 | 18/5/3 | 1/4/0 |
+| macOS 15 Intel, Meson 1.12 | 14/5/7 | 1/4/0 |
+
+On musl, the five PR failures are build-only removal, installation-path
+precedence, both mixed-tag chains, and transitive RPATH. Only precedence
+passes on main. The three tag-conversion cases have successful runtime checks;
+the transitive case also reports an empty entry in the middle library. Unlike
+glibc, musl does not lose transitive lookup when RPATH becomes RUNPATH. The
+header-preservation requirement still fails. Both dual-tag cases pass,
+including the expected loader failure for deliberately empty RUNPATH.
+
+On Intel macOS, the PR failures are duplicate removal, duplicate retention,
+paths containing spaces, mixed layout, and the corrected original fixture.
+Only the original fixture passes on main. The failure causes match ARM,
+including the second-build no-edit invocation for the corrected fixture.
+
+The jobs intentionally remain red when main also fails: a shared failing test
+can have different causes in the two backends. These runs add no new class of
+platform-specific defect, but confirm that the existing failures also occur
+on the supplemental platforms.
 
 ## Per-package results
 
@@ -142,7 +179,7 @@ failure occurs.
 | `rpath-relocated-chain` | **Fail** | Pass | Pass |
 | `rpath-relocated-multiple` | **Fail** | Pass | Pass |
 | `rpath-relocated-single` | Pass | Pass | Pass |
-| `sharedlib-in-package-orig` | Pass | **Fail** | Pass |
+| `sharedlib-in-package-orig` | Pass | Pass | Pass |
 
 ### Linux, Conda compiler
 
@@ -172,7 +209,7 @@ failure occurs.
 | `rpath-relocated-single` | **Fail** | **Fail** | Pass |
 | `sharedlib-in-package-orig` | Pass | **Fail** | Pass |
 
-### macOS ARM and Intel (Meson 1.9 and 1.12)
+### macOS 26 ARM (Meson 1.9 and 1.12)
 
 | Package | main | PR rewrite | Astra |
 | --- | --- | --- | --- |
@@ -210,8 +247,8 @@ For example, `rpath-legacy-origin-flat`, `rpath-in-package-flat`, and
 `rpath-install-build-overlap` have only tag-type failures in the Conda job,
 not installed import failures.
 
-The transitive-RPATH package fails to load its leaf library with the PR. The
-unmodified exploratory package also fails on main for a different reason, so
+On glibc, the transitive-RPATH package fails to load its leaf library with the
+PR. The unmodified exploratory package also fails on main for a different reason, so
 its two failures alone do not prove a regression. Separately, a local variant
 with an explicit link-time `$ORIGIN/lib` path already working on main produced:
 main runs; PR cannot find the leaf; restoring only the original tag types in
@@ -234,18 +271,20 @@ explicit installation paths before preserved paths in the resulting list.
 
 ### macOS command construction and path parsing
 
-The following failures repeat on both architectures and both Meson selections:
+The following failures repeat on ARM with both Meson selections and on Intel
+with Meson 1.12:
 
 | Package | PR failure | Focused correction |
 | --- | --- | --- |
-| `rpath-mixed-layout` | Second wheel build invokes `install_name_tool` with only the binary filename, because an ordering difference produces no actual edit arguments. | Skip the command when there are no edits. |
+| `rpath-mixed-layout`, `sharedlib-in-package-orig` | Second wheel build invokes `install_name_tool` with only the binary filename, because an ordering difference produces no actual edit arguments. | Skip the command when there are no edits. |
 | `rpath-macos-path-spaces` | The parser truncates paths at whitespace; a second build tries to add an existing path and Apple tools reject it. | Preserve the full path before the final otool offset annotation, including meaningful whitespace. |
 | `rpath-macos-duplicates-remove` | Identical `-delete_rpath` arguments occur twice in one invocation and Apple tools reject them. | Deduplicate deletion requests and verify all copies are removed. |
 
-These packages also fail some main expectations, so they should not be presented
-as three newly failing scenarios overall. They identify specific defects in the
-PR's editing/rebuild behavior, each amenable to a small change. Astra passes all
-three.
+`rpath-mixed-layout` and the two macOS-specific editing cases also fail some main expectations. The corrected
+`sharedlib-in-package-orig`, however, passes on main and fails on the PR:
+it is now a valid regression reproducer for the no-edit command defect.
+These identify three implementation fixes, not four separate causes. Astra
+passes all four packages.
 
 ### Compatibility requirement and the original fixture
 
@@ -255,22 +294,28 @@ conversion above. VapourSynth and DWave now also pass on macOS with the PR.
 This validates the anchor-translation compatibility fix for correct explicit
 installation paths.
 
-In the recorded run, `sharedlib-in-package-orig` passes on main and fails on the
-PR because it needs `$ORIGIN/sub` (or its native macOS equivalent), but requests only
-`$ORIGIN`. Keeping this incomplete two-library installation configuration
-working is outside the agreed PR compatibility requirement. The corrected
-legacy fixture is acceptable; this exploratory failure is not a merge blocker.
+This run includes the fixture correction to request
+`install_rpath: '$ORIGIN:$ORIGIN/sub'`, preserving its original layout and
+legacy anchors while supplying the previously missing installation path.
 
-After this checkpoint, the suite fixture was corrected to request
-`install_rpath: '$ORIGIN:$ORIGIN/sub'`. The result tables above retain the actual
-outcomes of the linked run, before that edit. Subsequent runs test the corrected
-installation paths while preserving the original layout and legacy anchors.
+| Environment | Corrected fixture with PR |
+| --- | --- |
+| System Linux/glibc, Meson 1.9 and 1.12 | Pass |
+| Alpine/musl, Meson 1.12 | Pass |
+| Conda Linux | Installed import and calculations pass; only RPATH-to-RUNPATH conversion fails |
+| macOS ARM and Intel | Second wheel build fails: `install_name_tool` receives only the binary filename |
 
-Astra does preserve that original fixture: commit `722f285` retains relative
-build paths when the source and installed layouts still lead to another native
-file. Together with anchor translation in `d3ea885`, this makes the original
-and single-library legacy packages pass everywhere. No further Astra shim is
-needed, and the broader layout-preservation policy need not be added to the PR.
+The macOS failure occurs during the second wheel construction, after
+`meson setup --reconfigure` succeeds. It does not establish an import
+failure for the corrected first wheel: the suite stops before the final smoke
+test when the second build fails. It demonstrates the already identified
+no-edit command bug with a valid installation configuration. Main and Astra
+pass this corrected fixture in every environment where they were run.
+
+Astra's broader layout-preservation shim remains useful for its compatibility
+policy, but need not be added to the PR to address these results. The focused
+PR corrections are still tag preservation, installation-path precedence, and
+the three macOS editing fixes.
 
 ## Deferred findings and limitations
 
@@ -289,17 +334,22 @@ needed, and the broader layout-preservation policy need not be added to the PR.
   Their overall red status is not itself grounds for blocking the PR. The
   agreed focused work is ELF tag preservation and precedence, plus the three
   macOS editing fixes above.
-- No repaired-wheel run or musl loader validation is included here. ELF runtime
-  conclusions refer to Linux/glibc. Cross-platform fixture runs cover the
-  stated CI platforms, not every Meson version or downstream build option.
+- No repaired-wheel run is included. Musl validation covers the small packages,
+  not downstream projects. Intel now runs only the PR and selective main
+  comparisons with Meson 1.12; Astra and Meson 1.9 Intel results are not part of
+  this checkpoint. Coverage does not extend to every downstream build option.
 
 ## Evidence and reproducibility
 
-This update was checked against the job logs and per-test outcomes in both runs,
-including all three backend sections of every downstream job. There is no need
-to infer a PR failure from a combined job's red status. Local copies of the logs
-and parsed package matrix are under `/tmp/rpath-ci-review/35439731268/` and
-`/tmp/rpath-ci-review/35439731271/`; these temporary files are not required to
-read the linked CI evidence. No backend, fixture expectation, or checker policy
-was changed for the recorded run. The subsequent original-fixture correction
-is identified separately above.
+This update was checked against job logs and per-test outcomes in all three
+runs, including all three backend sections of every downstream job and both
+supplemental baseline reruns. All routine jobs uploaded package artifacts.
+Local copies of the logs are under `/tmp/rpath-ci-review/35445578898/`,
+`/tmp/rpath-ci-review/35445578975/`, and `/tmp/rpath-ci-review/35445578909/`;
+these temporary files are not required to read the linked CI evidence.
+
+Compared with the previous checkpoint, the suite adds supplemental platforms,
+uses current ARM macOS for routine jobs, and corrects the original fixture's
+installation paths. Backend pins and checker policy are unchanged. The fixture
+correction removes the missing-subdirectory failure; it does not remove the
+independent tag-conversion and macOS repeated-build defects.
