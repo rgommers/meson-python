@@ -11,4 +11,7 @@ import sysconfig
 result = subprocess.run([pathlib.Path(sysconfig.get_path('platlib')) / 'probe/probe-exe'],
                         capture_output=True, text=True)
 assert result.returncode != 0, 'Empty RUNPATH incorrectly reactivated RPATH'
-assert 'librpath_test_choice.so' in result.stderr and 'cannot open shared object file' in result.stderr, result.stderr
+assert 'librpath_test_choice.so' in result.stderr, result.stderr
+# glibc and musl describe the same missing dependency differently.
+assert ('cannot open shared object file' in result.stderr
+        or 'Error loading shared library librpath_test_choice.so:' in result.stderr), result.stderr

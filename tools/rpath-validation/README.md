@@ -59,6 +59,36 @@ Meson's equivalent `$ORIGIN` and `$ORIGIN/` spellings. Linux checks the actual
 and preserves complete whitespace-containing paths. An independently built
 no-dependency control identifies legitimate compiler-injected paths.
 
+## Supplemental platforms: PR first
+
+`rpath-supplemental.yml` has two explicit jobs, with no backend/version matrix:
+musl x86_64 in a pinned Python/Alpine container, and `macos-15-intel`. Both use
+Meson `~=1.12.0` and the pinned PR checkout. The musl job builds and executes
+packages inside Alpine; GitHub checkout/upload actions run on the Ubuntu host.
+
+`supplemental.py` runs all applicable small packages against the PR. If packages
+fail, it reruns only those cases against the pinned main checkout using the same
+interpreter and toolchain. A passing PR run does not run any baseline tests.
+Neither Astra nor the large downstream projects run in these jobs.
+
+```sh
+python tools/rpath-validation/supplemental.py \
+  --backend /tmp/backend-pr --baseline /tmp/backend-main \
+  --output /tmp/rpath-supplemental-reports
+```
+
+Use a new output directory for each comparison. The job summary distinguishes
+PR failures with a passing baseline from cases where both fail or the baseline
+is inconclusive. Failures remain red even if main also fails: identical test
+names do not prove identical causes. Collection errors and all-skipped runs
+are not treated as successful validation. Artifacts contain separate `pr/` and
+`main/` package JSON and JUnit reports, plus `summary.md` and `comparison.json`.
+Intermediate build trees and virtual environments are temporary.
+
+The empty-RUNPATH smoke accepts glibc or musl's missing-library diagnostic while
+requiring the dependency name and a nonzero exit. Header/tag expectations remain
+unchanged; musl's transitive RUNPATH lookup must not hide tag conversion.
+
 ## Preserve the historical fixture
 
 `tests/packages/sharedlib-in-package-orig` is byte-for-byte the tracked package
@@ -73,11 +103,12 @@ work. Linux needs usable `$ORIGIN` and `$ORIGIN/sub` paths, and macOS needs usab
 `@loader_path` and `@loader_path/sub` paths. Windows checks imports and native
 results without RPATH assertions.
 
-Successful imports remain the compatibility requirement even when previous
-success depended on retained build paths. This makes a backwards-incompatible
-change visible without prescribing a production fix or changing the original
-fixture to use different anchors. With Meson 1.9+, the current rewrite loses the
-second library's path on Linux as well as exposing the macOS anchor problem.
+This fixture records a historical behavior change, but its installation path is
+incomplete: it does not request the second library's subdirectory. Preserving
+that configuration is outside the agreed PR merge requirements. The separate
+single-library legacy-origin package checks the required anchor compatibility.
+See `CI-RESULTS.md` for the current classification of failures; the supplemental
+comparison deliberately reports them without deciding merge policy.
 
 ## Compare backend revisions
 

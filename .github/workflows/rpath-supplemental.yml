@@ -1,0 +1,104 @@
+# SPDX-FileCopyrightText: 2026 The meson-python developers
+#
+# SPDX-License-Identifier: MIT
+
+name: RPATH supplemental platforms (PR first)
+on:
+  push:
+    branches: [rpath-regression-tests]
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  PR_REF: ddfcd049d0dfca8821195af396aa45afaa156948
+  MAIN_REF: cbe2ac407957ac0d8b0c5365a02d21dcade12822
+jobs:
+  musl:
+    name: Packages / PR@ddfcd049 / musl x86_64 / Meson 1.12
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: suite
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.PR_REF }}
+          path: pr
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.MAIN_REF }}
+          path: main
+          persist-credentials: false
+      # Run checkout/upload actions on the Ubuntu host; build and execute every
+      # package with native musl Python and the compiler inside Alpine.
+      - name: Test PR; compare failures with main
+        run: |
+          docker run --rm -v "$GITHUB_WORKSPACE:/work" -w /work/suite \
+            python:3.12.14-alpine3.24 sh -ec '
+              apk add --no-cache build-base binutils git ninja patchelf pkgconf
+              git config --global --add safe.directory /work/pr
+              git config --global --add safe.directory /work/main
+              python -m pip install build pytest wheel packaging "pyproject-metadata>=0.9" "meson~=1.12.0"
+              python -m pytest tools/rpath-validation/test_supplemental.py -q
+              python tools/rpath-validation/supplemental.py \
+                --backend /work/pr --baseline /work/main --output /work/reports
+            '
+      - name: Publish comparison summary
+        if: always()
+        run: |
+          if [ -f reports/summary.md ]; then
+            cat reports/summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: rpath-supplemental-musl
+          path: reports
+
+  macos-intel:
+    name: Packages / PR@ddfcd049 / macos-15-intel / Meson 1.12
+    runs-on: macos-15-intel
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: suite
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.PR_REF }}
+          path: pr
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.MAIN_REF }}
+          path: main
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Dependencies
+        run: |
+          brew install pkgconf
+          python -m pip install build pytest wheel ninja packaging "pyproject-metadata>=0.9" "meson~=1.12.0"
+      - name: Test PR; compare failures with main
+        working-directory: suite
+        run: |
+          python -m pytest tools/rpath-validation/test_supplemental.py -q
+          python tools/rpath-validation/supplemental.py \
+            --backend "$GITHUB_WORKSPACE/pr" --baseline "$GITHUB_WORKSPACE/main" \
+            --output "$GITHUB_WORKSPACE/reports"
+      - name: Publish comparison summary
+        if: always()
+        run: |
+          if [ -f reports/summary.md ]; then
+            cat reports/summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: rpath-supplemental-macos-intel
+          path: reports
