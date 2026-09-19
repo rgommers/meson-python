@@ -61,7 +61,7 @@ jobs:
           mkdir -p reports
           for revision in \
             cbe2ac407957ac0d8b0c5365a02d21dcade12822 \
-            2a2a7aea39536fdb91f4bd6fb2456400a08ab6cb \
+            ddfcd049d0dfca8821195af396aa45afaa156948 \
             722f285c396d4c38dedb198a2c6a6c23b85bf591; do
             # Fetch explicitly: a backend may live outside the suite's history.
             if ! git -c http.lowSpeedLimit=1024 -c http.lowSpeedTime=60 fetch --no-tags --depth=1 origin "$revision"; then

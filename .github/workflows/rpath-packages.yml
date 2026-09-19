@@ -18,7 +18,7 @@ jobs:
         # checkout needs complete commit IDs; abbreviated IDs are treated as refs.
         backend:
           - cbe2ac407957ac0d8b0c5365a02d21dcade12822 # main
-          - 2a2a7aea39536fdb91f4bd6fb2456400a08ab6cb # PR rewrite
+          - ddfcd049d0dfca8821195af396aa45afaa156948 # PR rewrite
           - 722f285c396d4c38dedb198a2c6a6c23b85bf591 # rpath-fixes-astra; publish before running
         # 1.9 exercises all RPATH cases; 1.12 covers the current release series.
         # Run older versions once more during the final compatibility review.
@@ -77,7 +77,7 @@ jobs:
         # checkout needs complete commit IDs; abbreviated IDs are treated as refs.
         backend:
           - cbe2ac407957ac0d8b0c5365a02d21dcade12822 # main
-          - 2a2a7aea39536fdb91f4bd6fb2456400a08ab6cb # PR rewrite
+          - ddfcd049d0dfca8821195af396aa45afaa156948 # PR rewrite
           - 722f285c396d4c38dedb198a2c6a6c23b85bf591 # rpath-fixes-astra; publish before running
     steps:
       - uses: actions/checkout@v7
