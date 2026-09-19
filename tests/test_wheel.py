@@ -298,6 +298,18 @@ def test_rpath_transitive_lookup(venv, wheel_sharedlib_chain, tmp_path):
     assert int(output) == 8
 
 
+@pytest.mark.skipif(sys.platform != 'linux', reason='requires ELF RPATH support')
+def test_rpath_install_precedence(venv, wheel_same_name_sharedlibs, tmp_path):
+    artifact = wheel.wheelfile.WheelFile(wheel_same_name_sharedlibs)
+    artifact.extractall(tmp_path)
+    rpath = mesonpy._rpath.get_rpath(tmp_path / 'same_name' / f'choice{EXT_SUFFIX}')
+
+    venv.pip('install', wheel_same_name_sharedlibs)
+    output = venv.python('-c', 'from same_name import choice; print(choice.value())')
+    assert int(output) == 42
+    assert rpath.index('$ORIGIN/private') < rpath.index('$ORIGIN/competing')
+
+
 @pytest.mark.skipif(sys.platform in {'win32', 'cygwin'}, reason='requires executable bit support')
 def test_executable_bit(wheel_executable_bit):
     artifact = wheel.wheelfile.WheelFile(wheel_executable_bit)
