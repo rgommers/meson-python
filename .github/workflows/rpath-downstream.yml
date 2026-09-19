@@ -48,9 +48,10 @@ jobs:
           cache: false
       - name: Test validation harness
         if: github.event_name == 'push' || inputs.project == 'all' || inputs.project == matrix.project
-        run: >-
-          pixi run --manifest-path tools/rpath-validation/pixi.toml python -m pytest
-          tools/rpath-validation/test_commands.py tools/rpath-validation/test_paths.py
+        run: |
+          mkdir -p reports
+          pixi run --manifest-path tools/rpath-validation/pixi.toml python -m pytest \
+          tools/rpath-validation/test_commands.py tools/rpath-validation/test_paths.py \
           --basetemp=reports/harness-tests -q
       - name: Compare backends with one dependency lock (25-minute budget each)
         if: github.event_name == 'push' || inputs.project == 'all' || inputs.project == matrix.project
