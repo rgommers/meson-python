@@ -21,6 +21,7 @@ permissions:
   contents: read
 jobs:
   downstream:
+    name: Downstream / ${{ matrix.project }} / ${{ matrix.os }} / main + PR + Astra
     strategy:
       fail-fast: false
       matrix:
