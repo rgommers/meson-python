@@ -284,6 +284,20 @@ def test_uneeded_rpath(wheel_purelib_and_platlib, tmp_path):
         assert origin not in path
 
 
+@pytest.mark.skipif(MESON_VERSION < (1, 6, 0), reason='meson too old')
+@pytest.mark.skipif(sys.platform != 'linux', reason='requires ELF RPATH support')
+def test_rpath_transitive_lookup(venv, wheel_sharedlib_chain, tmp_path):
+    artifact = wheel.wheelfile.WheelFile(wheel_sharedlib_chain)
+    artifact.extractall(tmp_path)
+    rpath = mesonpy._rpath.get_rpath(tmp_path / 'chainhead' / f'chain{EXT_SUFFIX}')
+    assert '$ORIGIN/lib' in rpath
+
+    venv.pip('install', wheel_sharedlib_chain)
+    # RUNPATH cannot supply the extension's search path to its indirect dependency on glibc.
+    output = venv.python('-c', 'from chainhead import chain; print(chain.value())')
+    assert int(output) == 8
+
+
 @pytest.mark.skipif(sys.platform in {'win32', 'cygwin'}, reason='requires executable bit support')
 def test_executable_bit(wheel_executable_bit):
     artifact = wheel.wheelfile.WheelFile(wheel_executable_bit)
