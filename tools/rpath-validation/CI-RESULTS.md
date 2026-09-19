@@ -1,9 +1,11 @@
 # RPATH CI results
 
-## Next checkpoint: Astra compatibility fixes
+## Current status: Astra compatibility fixes validated
 
-The workflow now compares Astra `722f285c396d4c38dedb198a2c6a6c23b85bf591` with the unchanged
-main and PR rewrite commits. This checkpoint contains two implementation fixes:
+The workflows pin Astra `722f285c396d4c38dedb198a2c6a6c23b85bf591`, main
+`cbe2ac407957ac0d8b0c5365a02d21dcade12822`, and the updated PR rewrite
+`ddfcd049d0dfca8821195af396aa45afaa156948`. Astra already contains two
+compatibility fixes:
 
 - Translate historical `$ORIGIN` / `${ORIGIN}` prefixes to `@loader_path` when
   rewriting macOS paths, including subdirectory suffixes.
@@ -18,12 +20,22 @@ and imports successfully. The existing expectations were not relaxed. The
 backend RPATH and wheel tests report **68 passed, 7 skipped** on Meson 1.11.2;
 the skips include native macOS checks. Lint and whitespace checks pass.
 
-Native macOS validation is pending. In particular, verify the original and
-legacy-origin packages and the VapourSynth/DWave imports. Existing duplicates
-in a binary that the wheel builder never processes remain a separate, deferred
-fix; the macOS duplicate-retention package is still expected to fail.
+The completed [package run 35434791142](https://github.com/rgommers/meson-python/actions/runs/35434791142)
+confirms **23 passed, 3 skipped** for Astra on Linux with both Meson versions
+and in the Conda job. On macOS ARM and Intel, both Meson versions report
+**18 passed, 1 failed, 7 skipped**. The original and legacy-origin packages
+pass everywhere. Astra's only remaining package failure is
+`rpath-macos-duplicates-retain`: the wheel builder does not process that binary.
 
-## Latest package CI: dual tags and mixed dependency chains
+The [downstream run 35434791104](https://github.com/rgommers/meson-python/actions/runs/35434791104)
+also confirms passing Astra runtime checks for NumPy, VapourSynth, and DWave
+on Linux and macOS. The harness corrections for false retained-build-path
+findings are undergoing a separate CI run; they do not change the backend.
+
+The sections below record older runs. Their Astra failures describe the older
+implementation, before the compatibility fixes, and are not current blockers.
+
+## Historical package CI: dual tags and mixed dependency chains
 
 Source: [package run 34981524681](https://github.com/rgommers/meson-python/actions/runs/34981524681),
 using suite commit `e707a1436436cc68377ee83846db899c86e19db3` and the same main,
@@ -64,10 +76,10 @@ both Meson selections; the Conda jobs use their environment-resolved Meson.
 | Linux aarch64, Conda compiler | 9/14/3 | 6/17/3 | 22/1/3 |
 | macOS arm64 and Intel | 8/11/7 | 12/7/7 | 16/3/7 |
 
-Astra's remaining Linux failure is still `sharedlib-in-package-orig`. Its macOS
-failures remain that original fixture, `rpath-legacy-origin-flat`, and
-`rpath-macos-duplicates-retain`. The reduced Meson matrix retains all observed
-current failures.
+In this older run, Astra's remaining Linux failure was
+`sharedlib-in-package-orig`. Its macOS failures were that original fixture,
+`rpath-legacy-origin-flat`, and `rpath-macos-duplicates-retain`. The first two
+have since been fixed, as confirmed in the current-status section above.
 
 ### Fixture correction after this run
 
