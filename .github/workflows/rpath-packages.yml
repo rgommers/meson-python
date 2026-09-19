@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-14, macos-15-intel]
+        os: [ubuntu-24.04, macos-latest]
         # checkout needs complete commit IDs; abbreviated IDs are treated as refs.
         backend:
           - label: main@cbe2ac40
