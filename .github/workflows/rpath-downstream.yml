@@ -46,9 +46,12 @@ jobs:
           pixi-version: v0.77.1
           manifest-path: tools/rpath-validation/pixi.toml
           cache: false
-      - name: Test command logging and timeout cleanup
+      - name: Test validation harness
         if: github.event_name == 'push' || inputs.project == 'all' || inputs.project == matrix.project
-        run: pixi run --manifest-path tools/rpath-validation/pixi.toml python -m pytest tools/rpath-validation/test_commands.py -q
+        run: >-
+          pixi run --manifest-path tools/rpath-validation/pixi.toml python -m pytest
+          tools/rpath-validation/test_commands.py tools/rpath-validation/test_paths.py
+          --basetemp=reports/harness-tests -q
       - name: Compare backends with one dependency lock (25-minute budget each)
         if: github.event_name == 'push' || inputs.project == 'all' || inputs.project == matrix.project
         env:

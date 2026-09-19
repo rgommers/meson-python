@@ -52,9 +52,13 @@ def environment():
 def build_input(source, build, env, log):
     # Project configures the same defaults as wheel generation, but this step
     # stops before wheel postprocessing. No RPATH helper is called directly.
-    run([sys.executable, '-c',
+    output = run([sys.executable, '-c',
          'import mesonpy, sys; print(mesonpy.__file__); mesonpy.Project(sys.argv[1], sys.argv[2]).build()',
          source, build], source, env, log)
+    imported = pathlib.Path(output.splitlines()[0]).resolve()
+    assert imported == BACKEND / 'mesonpy/__init__.py', (
+        f'Wrong backend imported: {imported}; expected {BACKEND}. '
+        'Use an environment without an overriding editable installation.')
 
 
 @pytest.fixture(scope='session')

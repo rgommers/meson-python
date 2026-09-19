@@ -54,9 +54,10 @@ def test_output_is_live_before_command_exits(tmp_path, capsys):
             log = tmp_path / 'live.stdout.log'
             wait_for(lambda: log.exists() and 'started' in log.read_text())
             assert not future.done()
-            assert 'started' in capsys.readouterr().out
-            time.sleep(0.2)
-            assert 'still running' in capsys.readouterr().out
+            # The file is flushed just before the console write, so observing
+            # it does not yet guarantee that the console has caught up.
+            wait_for(lambda: 'started' in capsys.readouterr().out)
+            wait_for(lambda: 'still running' in capsys.readouterr().out)
         finally:
             release.touch()
         result, timed_out = future.result(timeout=5)
@@ -114,7 +115,7 @@ def test_runner_saves_partial_report(tmp_path, cancel):
     report = json.loads((output / 'report.json').read_text())
     assert report['errors']
     record = report['commands'][0]
-    assert record['state'] == ('interrupted' if cancel else 'timed_out')
+    assert record['state'] == ('interrupted' if cancel else 'timed_out'), (report, stdout, stderr)
     assert record['timeout_seconds'] <= (30 if cancel else 1)
     assert (output / record['stderr_log']).read_text() == 'partial-error\n'
     assert json.loads((output / 'commands.json').read_text()) == report['commands']

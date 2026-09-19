@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 import pathlib
+import posixpath
 import shlex
 import shutil
 import signal
@@ -34,16 +35,39 @@ def check_paths(binaries, install_plan, forbidden_prefixes, toolchain_paths=()):
     """Return all header problems without stopping the installed-wheel test."""
     failures = []
     toolchain_paths = set(map(normalize_rpath, toolchain_paths))
+    installed_directories = {}
+    for name in binaries:
+        installed_directories.setdefault(posixpath.normpath(posixpath.dirname(name)), set()).add(name)
+
+    def install_path(path):
+        # Compare metadata with the native spelling emitted by the backend.
+        root, sep, suffix = path.partition('/')
+        if sys.platform == 'darwin' and root == '$ORIGIN':
+            path = '@loader_path' + sep + suffix
+        return normalize_rpath(path)
+
+    def reaches_installed_binary(path, name):
+        root, _, suffix = path.partition('/')
+        anchors = ('@loader_path',) if sys.platform == 'darwin' else ('$ORIGIN', '${ORIGIN}')
+        if root not in anchors:
+            return False
+        directory = posixpath.normpath(posixpath.join(posixpath.dirname(name), suffix))
+        return bool(installed_directories.get(directory, set()) - {name})
+
     for name, info in binaries.items():
         targets = [target for filename, target in install_plan.get('targets', {}).items()
                    if pathlib.Path(filename).name == pathlib.Path(name).name]
         build_paths = {normalize_rpath(path) for target in targets for path in target.get('build_rpaths', [])}
-        install_paths = {normalize_rpath(path) for target in targets
+        install_paths = {install_path(path) for target in targets
                          for path in (target.get('install_rpath') or '').split(':') if path}
         for path, count in Counter(info['paths']).items():
             if not path or not path.strip('X'):
                 failures.append(f'{name}: empty or padding RPATH {path!r}')
-            if normalize_rpath(path) in build_paths - install_paths - toolchain_paths:
+            # A relative build path can remain useful in the installed layout.
+            # This checks its destination, not whether a particular dependency
+            # needs it. Redundant routes are not build-directory leaks.
+            if (normalize_rpath(path) in build_paths - install_paths - toolchain_paths
+                    and not reaches_installed_binary(path, name)):
                 failures.append(f'{name}: retained build-only RPATH {path!r}')
             if count > 1:
                 failures.append(f'{name}: duplicate {path!r} ({count} copies)')
@@ -114,6 +138,7 @@ def main():
                           state='timed_out' if timed_out else 'finished')
         except BaseException as error:
             record['state'] = 'interrupted' if isinstance(error, KeyboardInterrupt) else 'failed'
+            record['error'] = f'{type(error).__name__}: {error}'
             raise
         finally:
             record['elapsed_seconds'] = time.monotonic() - started
