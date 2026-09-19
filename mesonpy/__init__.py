@@ -484,7 +484,9 @@ class _WheelBuilder():
         if self._has_internal_libs and _is_native(origin):
             libspath = os.path.relpath(self._libs_dir, destination.parent)
             mesonpy._rpath.fix_rpath(origin, install_rpath, build_rpath, libspath)
-        elif install_rpath or build_rpath:
+        elif install_rpath or build_rpath or (sys.platform == 'darwin' and _is_native(origin)):
+            # macOS rejects duplicate LC_RPATH commands even when no libraries
+            # are relocated and Meson reports no paths to add or remove.
             mesonpy._rpath.fix_rpath(origin, install_rpath, build_rpath, None)
 
         try:
