@@ -1,5 +1,5 @@
 {
-  "purpose": "Preserve successful imports of the byte-for-byte original sharedlib-in-package fixture.",
+  "purpose": "Preserve the original shared-library layout and legacy anchors, with installation paths for both dependencies.",
   "min_meson": "0.64",
   "platforms": ["linux", "darwin", "win32"],
   "rules": [

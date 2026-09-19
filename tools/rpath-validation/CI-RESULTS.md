@@ -255,11 +255,16 @@ conversion above. VapourSynth and DWave now also pass on macOS with the PR.
 This validates the anchor-translation compatibility fix for correct explicit
 installation paths.
 
-`sharedlib-in-package-orig` still passes on main and fails on the PR because it
-needs `$ORIGIN/sub` (or its native macOS equivalent), but requests only
+In the recorded run, `sharedlib-in-package-orig` passes on main and fails on the
+PR because it needs `$ORIGIN/sub` (or its native macOS equivalent), but requests only
 `$ORIGIN`. Keeping this incomplete two-library installation configuration
 working is outside the agreed PR compatibility requirement. The corrected
 legacy fixture is acceptable; this exploratory failure is not a merge blocker.
+
+After this checkpoint, the suite fixture was corrected to request
+`install_rpath: '$ORIGIN:$ORIGIN/sub'`. The result tables above retain the actual
+outcomes of the linked run, before that edit. Subsequent runs test the corrected
+installation paths while preserving the original layout and legacy anchors.
 
 Astra does preserve that original fixture: commit `722f285` retains relative
 build paths when the source and installed layouts still lead to another native
@@ -296,4 +301,5 @@ to infer a PR failure from a combined job's red status. Local copies of the logs
 and parsed package matrix are under `/tmp/rpath-ci-review/35439731268/` and
 `/tmp/rpath-ci-review/35439731271/`; these temporary files are not required to
 read the linked CI evidence. No backend, fixture expectation, or checker policy
-was changed as part of this report update.
+was changed for the recorded run. The subsequent original-fixture correction
+is identified separately above.

@@ -1,7 +1,7 @@
 # RPATH regression package expectations
 
 This document collects the expectations for the 25 standalone `rpath-*` packages
-and the unchanged `sharedlib-in-package-orig` compatibility fixture. It describes
+and the corrected `sharedlib-in-package-orig` compatibility fixture. It describes
 the **raw wheels produced by meson-python**, before auditwheel or delocate repair.
 The tests build native code, inspect the installed binaries, and verify the
 specified runtime behavior after source and build directories are removed. Known
@@ -147,12 +147,13 @@ library's path to change even with a system compiler.
 The executable and middle library search different directories, so the
 executable's path cannot accidentally satisfy the middle library's leaf lookup.
 
-## Unchanged compatibility fixture
+## Legacy compatibility fixture
 
 [sharedlib-in-package-orig](tests/packages/sharedlib-in-package-orig) preserves the
-original fixture's contents byte for byte. Its assertions and smoke code live
-outside the package so the fixture itself stays unchanged. It runs with Meson
-0.64 or newer.
+original fixture's layout and literal `$ORIGIN` anchors, with one correction:
+`install_rpath` now requests `$ORIGIN/sub` as well as `$ORIGIN`, since the
+extension directly links to libraries in both directories. Its assertions and
+smoke code live outside the package. It runs with Meson 0.64 or newer.
 
 | Installed binary | Linux paths | macOS LC_RPATH paths |
 | --- | --- | --- |
@@ -162,8 +163,8 @@ outside the package so the fixture itself stays unchanged. It runs with Meson
 
 Both native operations must work: `example_sum(2, 5) == 7` and
 `example_prod(6, 7) == 42`. The Windows run checks successful execution only,
-without inspecting RPATH headers. This fixture deliberately preserves historical
-inputs, including literal `$ORIGIN` syntax, and demands continued functionality.
+without inspecting RPATH headers. This fixture retains literal `$ORIGIN` syntax
+on every platform and demands continued functionality.
 It is a separate compatibility check from the new platform-correct layouts.
 
 ## What every package run verifies

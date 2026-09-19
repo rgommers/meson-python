@@ -89,12 +89,13 @@ The empty-RUNPATH smoke accepts glibc or musl's missing-library diagnostic while
 requiring the dependency name and a nonzero exit. Header/tag expectations remain
 unchanged; musl's transitive RUNPATH lookup must not hide tag conversion.
 
-## Preserve the historical fixture
+## Legacy compatibility fixture
 
-`tests/packages/sharedlib-in-package-orig` is byte-for-byte the tracked package
-from `cbe2ac4`. Its containing directory is renamed; its project name, C sources,
-Python imports, Meson layout, and literal `$ORIGIN` are unchanged. No README or
-expectations file was added inside that preserved tree.
+`tests/packages/sharedlib-in-package-orig` derives from the tracked package at
+`cbe2ac4`. Its project name, C sources, Python imports, Meson layout, and literal
+`$ORIGIN` anchors are unchanged. One correction adds `$ORIGIN/sub` to
+`install_rpath`, because the extension directly depends on the library in that
+subdirectory as well as the sibling library.
 
 Its expectations live in `tests/rpath-original-expectations.json` and its smoke
 test in `tests/rpath-original-smoke.py`. The extension must reach both the
@@ -103,10 +104,10 @@ work. Linux needs usable `$ORIGIN` and `$ORIGIN/sub` paths, and macOS needs usab
 `@loader_path` and `@loader_path/sub` paths. Windows checks imports and native
 results without RPATH assertions.
 
-This fixture records a historical behavior change, but its installation path is
-incomplete: it does not request the second library's subdirectory. Preserving
-that configuration is outside the agreed PR merge requirements. The separate
-single-library legacy-origin package checks the required anchor compatibility.
+The previous fixture had an incomplete installation path and only worked because
+the old backend retained a build path to the second library. The corrected
+fixture tests a valid two-library layout. The separate single-library
+legacy-origin package also checks the required anchor compatibility.
 See `CI-RESULTS.md` for the current classification of failures; the supplemental
 comparison deliberately reports them without deciding merge policy.
 
