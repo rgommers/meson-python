@@ -224,6 +224,7 @@ def meson_fatal_warnings():
                 'link-against-local-lib',
                 'sharedlib-in-package',
                 'same-name-sharedlibs',
+                'special-library-paths',
 
         }:
             if meson_args is None:

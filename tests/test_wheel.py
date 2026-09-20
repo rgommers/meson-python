@@ -310,6 +310,32 @@ def test_rpath_install_precedence(venv, wheel_same_name_sharedlibs, tmp_path):
     assert rpath.index('$ORIGIN/private') < rpath.index('$ORIGIN/competing')
 
 
+@pytest.mark.skipif(sys.platform != 'darwin', reason='requires macOS RPATH support')
+@pytest.mark.skipif(not BUILD_RPATH_SUPPORT, reason='requires build RPATH metadata')
+def test_rpath_macos_editing(venv, package_special_library_paths, tmp_path):
+    expected = {
+        'layout': ['@loader_path', '@loader_path/sub'],
+        'editing': ['@loader_path/some path/(library)', '@loader_path/trailing ',
+                    '@loader_path/new path/(library)'],
+    }
+    # Build twice in the same build directory to check that RPATH processing is
+    # repeatable, including when paths differ only in order and require no edits.
+    for index in range(2):
+        output = tmp_path / str(index)
+        output.mkdir()
+        filename = output / mesonpy.build_wheel(output, config_settings={'build-dir': str(tmp_path / 'build')})
+        artifact = wheel.wheelfile.WheelFile(filename)
+        artifact.extractall(output)
+        for directory, paths in expected.items():
+            binary = output / 'special_paths' / directory / f'example{EXT_SUFFIX}'
+            rpath = mesonpy._rpath.get_rpath(binary)
+            assert sorted(rpath) == sorted(paths)
+
+        venv.pip('install', '--force-reinstall', filename)
+        assert int(venv.python('-c', 'from special_paths.layout import example; print(example.value())')) == 49
+        assert int(venv.python('-c', 'from special_paths.editing import example; print(example.value())')) == 42
+
+
 @pytest.mark.skipif(sys.platform in {'win32', 'cygwin'}, reason='requires executable bit support')
 def test_executable_bit(wheel_executable_bit):
     artifact = wheel.wheelfile.WheelFile(wheel_executable_bit)
